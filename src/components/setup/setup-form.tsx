@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { InstallDialedCard } from "@/components/pwa/install-dialed-card";
 import { saveSetup } from "@/features/data/actions";
 import type { Equipment, UserSettings } from "@/types/domain";
 
@@ -40,6 +41,7 @@ export function SetupForm({ displayName, email, equipment, settings }: { display
     </SettingsCard>
     <SettingsCard title="Standard-Puck-Prep"><div className="flex flex-wrap gap-2 px-4 pb-4">{availableTools.map((tool) => { const on = selectedTools.includes(tool); return <button type="button" key={tool} onClick={() => setSelectedTools(on ? selectedTools.filter((item) => item !== tool) : [...selectedTools, tool])} className={`min-h-11 rounded-full border px-3 text-[10px] ${on ? "border-[var(--dialed-sage)]/30 bg-[var(--dialed-sage-soft)] text-[var(--dialed-sage)]" : "bg-[var(--dialed-surface)]"}`}>{on ? "✓" : "＋"} {tool}</button>; })}</div></SettingsCard>
     <SettingsCard title="Smarte Hinweise"><Setting icon={<TrendingUp />} title="Dial‑in‑Vorschläge" copy="Aus Zeit, Ratio und Geschmack"><Switch checked={suggestions} onCheckedChange={setSuggestions} /></Setting><Setting icon={<Timer />} title="Röstalter warnen" copy={`Hinweis ab ${settings?.roast_age_warning_days ?? 45} Tagen`}><Switch checked={warning} onCheckedChange={setWarning} /></Setting></SettingsCard>
+    <InstallDialedCard variant="settings" />
     <SettingsCard title="Account"><Setting icon={<span className="font-display text-lg">{displayName.charAt(0).toUpperCase()}</span>} title={email} copy="Anzeigename"><Input aria-label="Anzeigename" className="w-[120px] text-right text-[10px]" {...register("displayName", { required: true })} /></Setting><div className="border-t p-4"><Button type="button" onClick={signOut} variant="ghost" className="w-full rounded-full text-[var(--dialed-rose)]"><LogOut />Abmelden</Button></div></SettingsCard>
   </form>;
 }

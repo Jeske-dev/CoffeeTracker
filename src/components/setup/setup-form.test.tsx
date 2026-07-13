@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { SetupForm } from "./setup-form";
+import { PwaInstallationProvider } from "@/hooks/use-pwa-installation";
 
 const mocks = vi.hoisted(() => ({
   refresh: vi.fn(),
@@ -14,7 +15,8 @@ vi.mock("sonner", () => ({ toast: { success: mocks.success, error: vi.fn() } }))
 
 describe("SetupForm", () => {
   it("sendet Maschine und Mühle über den Speichern-Button ab", async () => {
-    render(<SetupForm displayName="Brian" email="brian@example.com" equipment={[]} settings={null}/>);
+    Object.defineProperty(window, "matchMedia", { configurable: true, value: vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }) });
+    render(<PwaInstallationProvider><SetupForm displayName="Brian" email="brian@example.com" equipment={[]} settings={null}/></PwaInstallationProvider>);
 
     fireEvent.change(screen.getByLabelText("Siebträgermaschine"), { target: { value: "Linea Mini" } });
     fireEvent.change(screen.getByLabelText("Mühle"), { target: { value: "Niche Zero" } });

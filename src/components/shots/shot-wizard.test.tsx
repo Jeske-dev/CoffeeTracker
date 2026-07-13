@@ -15,7 +15,7 @@ const bean: Bean = {
 };
 
 describe("ShotWizard", () => {
-  beforeEach(() => { localStorage.clear(); vi.clearAllMocks(); });
+  beforeEach(() => { localStorage.clear(); vi.clearAllMocks(); Object.defineProperty(navigator, "onLine", { configurable: true, value: true }); });
 
   it("öffnet nach der Extraktion das Review, ohne den Shot zu speichern", async () => {
     render(<ShotWizard userId="user-1" beans={[bean]} equipment={[]} settings={null} lastShot={null}/>);
@@ -27,6 +27,20 @@ describe("ShotWizard", () => {
     await screen.findByText("Wie war der Shot?");
     expect(mocks.saveShot).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Review abschließen & speichern" })).toBeInTheDocument();
+    await waitFor(() => expect(localStorage.getItem("dialed:shot-draft:user-1")).not.toBeNull());
+  });
+
+  it("behält den Entwurf offline und deaktiviert das endgültige Speichern", async () => {
+    Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
+    render(<ShotWizard userId="user-1" beans={[bean]} equipment={[]} settings={null} lastShot={null}/>);
+
+    fireEvent.click(screen.getByRole("button", { name: "Weiter" }));
+    await screen.findByText("Extraktion läuft.");
+    fireEvent.click(screen.getByRole("button", { name: "Weiter" }));
+
+    const save = await screen.findByRole("button", { name: "Offline – Entwurf bleibt erhalten" });
+    expect(save).toBeDisabled();
+    expect(mocks.saveShot).not.toHaveBeenCalled();
     await waitFor(() => expect(localStorage.getItem("dialed:shot-draft:user-1")).not.toBeNull());
   });
 });
