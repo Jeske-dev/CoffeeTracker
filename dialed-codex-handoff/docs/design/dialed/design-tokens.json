@@ -1,0 +1,39 @@
+{
+  "name": "Dialed Coffee Light",
+  "colors": {
+    "canvas": "#EEE6DC",
+    "surface": "#FBF8F3",
+    "surfaceSubtle": "#F3ECE4",
+    "surfaceStrong": "#EBE1D6",
+    "textPrimary": "#241914",
+    "textSecondary": "#5E5048",
+    "textMuted": "#8D7E74",
+    "espresso": "#2B1B16",
+    "espressoRaised": "#3C251D",
+    "crema": "#C8804F",
+    "cremaSoft": "#F0D7C5",
+    "sage": "#6F806F",
+    "sageSoft": "#DFE7DC",
+    "rose": "#A95F52",
+    "roseSoft": "#F2DCD7"
+  },
+  "radius": {
+    "small": 13,
+    "medium": 18,
+    "large": 24,
+    "xlarge": 30,
+    "pill": 999
+  },
+  "spacing": [4, 8, 10, 12, 16, 18, 24, 30, 36],
+  "typography": {
+    "display": "Newsreader, Lora, Fraunces, Georgia, serif",
+    "body": "Inter, Manrope, system-ui, sans-serif",
+    "mono": "SFMono-Regular, JetBrains Mono, monospace"
+  },
+  "motion": {
+    "fast": "180ms",
+    "normal": "350ms",
+    "sheet": "520ms",
+    "ease": "cubic-bezier(.2,.75,.2,1)"
+  }
+}

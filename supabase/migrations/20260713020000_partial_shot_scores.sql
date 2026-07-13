@@ -1,0 +1,17 @@
+alter table public.shots alter column grind_setting drop not null;
+alter table public.shots alter column dose_grams drop not null;
+alter table public.shots alter column extraction_seconds drop not null;
+alter table public.shots alter column stop_weight_grams drop not null;
+alter table public.shots alter column final_yield_grams drop not null;
+alter table public.shots alter column taste drop not null;
+alter table public.shots alter column flow drop not null;
+alter table public.shots alter column puck drop not null;
+alter table public.shots alter column prep_tools drop not null;
+alter table public.shots alter column prep_tools drop default;
+alter table public.shots alter column score drop not null;
+alter table public.shots add column if not exists overall_taste_rating smallint check (overall_taste_rating between 1 and 5);
+alter table public.shots add column if not exists tds numeric(5,3) check (tds > 0 and tds < 20);
+alter table public.shots add column if not exists flow_evenness numeric(5,2) check (flow_evenness between 0 and 100);
+alter table public.shots add column if not exists channeling boolean;
+alter table public.shots add column if not exists score_coverage numeric(5,2) check (score_coverage between 0 and 100);
+alter table public.shots add column if not exists score_status text check (score_status in ('Geringe Aussagekraft','Vorläufig','Aussagekräftig','Sehr detailliert'));

@@ -1,0 +1,2 @@
+import{requireUser}from"@/lib/supabase/auth";import{loadAppData}from"@/features/data/queries";import{SetupForm}from"@/components/setup/setup-form";
+export default async function SetupPage(){const{userId,email}=await requireUser();const{profile,equipment,settings}=await loadAppData(userId);return <SetupForm displayName={profile?.display_name||email.split('@')[0]} email={email} equipment={equipment} settings={settings}/>}

@@ -1,0 +1,2 @@
+import type{Metadata}from"next";import{AuthCard}from"@/components/auth/auth-card";import{AuthForm}from"@/components/auth/auth-form";import{updatePasswordAction}from"@/features/auth/actions";
+export const metadata:Metadata={title:"Neues Passwort"};export default function Page(){return <AuthCard title="Neues Passwort." description="Wähle mindestens acht Zeichen und speichere dein neues Passwort."><AuthForm mode="update" action={updatePasswordAction}/></AuthCard>}

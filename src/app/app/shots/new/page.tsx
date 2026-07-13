@@ -1,0 +1,2 @@
+import{redirect}from"next/navigation";import{requireUser}from"@/lib/supabase/auth";import{loadAppData}from"@/features/data/queries";import{ShotWizard}from"@/components/shots/shot-wizard";
+export default async function NewShotPage(){const{userId}=await requireUser();const{beans,equipment,settings,shots}=await loadAppData(userId);if(!beans.some(b=>!b.archived_at))redirect('/app/beans/new');return <ShotWizard userId={userId} beans={beans} equipment={equipment} settings={settings} lastShot={shots[0]??null}/>}

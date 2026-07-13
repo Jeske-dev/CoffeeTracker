@@ -1,0 +1,2 @@
+import { expect, test } from "@playwright/test";
+test("Auth-Oberfläche ist auf Mobile und Desktop erreichbar", async ({ page }, testInfo) => { await page.goto("/auth/login"); await expect(page.getByRole("heading", { name: "Willkommen zurück." })).toBeVisible(); await expect(page.getByLabel("E-Mail")).toBeVisible(); await expect(page.getByRole("button", { name: "Anmelden" })).toBeVisible(); await page.screenshot({ path: `artifacts/dialed-auth-${testInfo.project.name}.png`, fullPage: true }); });
