@@ -1,4 +1,4 @@
-import type { Bean, BeanProcess, Equipment, EquipmentType, PuckState, RoastLevel, Shot, ShotFlow, ShotTaste, UserSettings } from "./domain";
+import type { Bean, BeanProcess, Equipment, EquipmentType, PuckState, RecommendationBundleRecord, RecommendationSuppression, RoastLevel, Shot, ShotFlow, ShotTaste, TargetRecipe, UserSettings } from "./domain";
 
 type Table<Row, Insert, Update = Partial<Insert>> = { Row: Row; Insert: Insert; Update: Update; Relationships: [] };
 
@@ -10,6 +10,9 @@ export type Database = {
       equipment: Table<Equipment, Omit<Equipment, "id" | "created_at" | "updated_at" | "archived_at" | "notes"> & { id?: string; notes?: string | null; archived_at?: string | null }>;
       user_settings: Table<UserSettings, Omit<UserSettings, "created_at" | "updated_at">>;
       shots: Table<Shot, Omit<Shot, "id" | "created_at" | "updated_at"> & { id?: string }>;
+      target_recipes: Table<TargetRecipe, Omit<TargetRecipe, "id" | "created_at" | "updated_at"> & { id?: string }>;
+      recommendation_bundles: Table<RecommendationBundleRecord, Omit<RecommendationBundleRecord, "id" | "created_at" | "updated_at"> & { id?: string }>;
+      recommendation_suppressions: Table<RecommendationSuppression, Omit<RecommendationSuppression, "id" | "created_at"> & { id?: string }>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

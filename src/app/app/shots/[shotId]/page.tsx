@@ -7,14 +7,22 @@ import { brewRatio, postStopDrip, TASTE_COLORS } from "@/lib/calculations";
 import { formatDateTime, formatRatio, formatTime, formatWeight, tasteLabel } from "@/lib/formatting";
 import { DeleteShotButton } from "@/components/shots/delete-shot-button";
 import { ShotComparisonChart } from "@/components/shots/shot-comparison-chart";
-import type { ShotWithBean } from "@/types/domain";
+import { NextShotCard } from "@/features/recommendations/components/next-shot-card";
+import { RecommendationHistory } from "@/features/recommendations/components/recommendation-history";
+import type { RecommendationBundleRecord, ShotWithBean } from "@/types/domain";
 
 export default async function ShotDetail({ params }: PageProps<"/app/shots/[shotId]">) {
   const { shotId } = await params;
-  const { userId } = await requireUser();
+  const { supabase, userId } = await requireUser();
   const { shots, equipment } = await loadAppData(userId);
   const shot = shots.find((s) => s.id === shotId);
   if (!shot) notFound();
+  const [sourceRecommendationResult, appliedRecommendationResult] = await Promise.all([
+    supabase.from("recommendation_bundles").select("*").eq("source_shot_id", shot.id).eq("user_id", userId).eq("engine_version", "1.0.0").maybeSingle(),
+    shot.applied_recommendation_id ? supabase.from("recommendation_bundles").select("*").eq("id", shot.applied_recommendation_id).eq("user_id", userId).maybeSingle() : Promise.resolve({ data: null, error: null }),
+  ]);
+  const sourceRecommendation = sourceRecommendationResult.data as RecommendationBundleRecord | null;
+  const appliedRecommendation = appliedRecommendationResult.data as RecommendationBundleRecord | null;
 
   const ratio = brewRatio(shot.final_yield_grams, shot.dose_grams);
   const drip = postStopDrip(shot.final_yield_grams, shot.stop_weight_grams);
@@ -22,9 +30,9 @@ export default async function ShotDetail({ params }: PageProps<"/app/shots/[shot
   const issues = shotIssues(shot);
   const metrics: Metric[] = [
     { label: "Dosis", value: formatWeight(shot.dose_grams), icon: Scale, tone: shot.dose_grams === null ? "muted" : "default" },
-    { label: "Yield", value: formatWeight(shot.final_yield_grams), icon: Droplets, tone: ratio !== null && (ratio < 1.8 || ratio > 2.15) ? "warning" : "default" },
-    { label: "Ratio", value: formatRatio(ratio), icon: Target, tone: ratio !== null && (ratio < 1.8 || ratio > 2.15) ? "warning" : "default" },
-    { label: "Zeit", value: formatTime(shot.extraction_seconds), icon: Timer, tone: shot.extraction_seconds !== null && (shot.extraction_seconds < 25 || shot.extraction_seconds > 32) ? "warning" : "default" },
+    { label: "Yield", value: formatWeight(shot.final_yield_grams), icon: Droplets, tone: "default" },
+    { label: "Ratio", value: formatRatio(ratio), icon: Target, tone: "default" },
+    { label: "Zeit", value: formatTime(shot.extraction_seconds), icon: Timer, tone: "default" },
     { label: "Stop", value: formatWeight(shot.stop_weight_grams), icon: Gauge, tone: "default" },
     { label: "Nachlauf", value: formatWeight(drip), icon: Activity, tone: drip !== null && drip > 3 ? "warning" : "default" },
   ];
@@ -41,9 +49,12 @@ export default async function ShotDetail({ params }: PageProps<"/app/shots/[shot
       </div>
     </section>
 
+    {sourceRecommendation && (sourceRecommendation.status === "active" || sourceRecommendation.status === "applied") && <NextShotCard recommendation={sourceRecommendation} beanName={shot.beans?.name} sourceShotId={shot.id} />}
+    {appliedRecommendation && <RecommendationHistory recommendation={appliedRecommendation} />}
+
     <section className={`mt-3 rounded-[22px] border p-4 ${issues.length ? "border-[var(--dialed-rose)]/20 bg-[var(--dialed-rose-soft)]/55" : "border-[var(--dialed-sage)]/20 bg-[var(--dialed-sage-soft)]/65"}`}>
       <div className="mb-3 flex items-center gap-2">{issues.length ? <AlertTriangle className="size-4 text-[var(--dialed-rose)]" /> : <CheckCircle2 className="size-4 text-[var(--dialed-sage)]" />}<h2 className="text-sm font-extrabold">{issues.length ? "Auffälligkeiten" : "Keine klaren Probleme"}</h2></div>
-      <div className="grid gap-2">{(issues.length ? issues : [{ title: "Im Zielbereich", detail: "Zeit, Ratio und Diagnose wirken für diesen Shot stabil.", icon: CheckCircle2 }]).map((issue) => <ProblemItem key={issue.title} {...issue} />)}</div>
+      <div className="grid gap-2">{(issues.length ? issues : [{ title: "Keine Auffälligkeit erfasst", detail: "Geschmack, Flow und Puck zeigen kein klares Problem.", icon: CheckCircle2 }]).map((issue) => <ProblemItem key={issue.title} {...issue} />)}</div>
     </section>
 
     <div className="mt-3 grid grid-cols-2 gap-2">{metrics.map((metric) => <MetricCard key={metric.label} {...metric} />)}</div>
@@ -51,7 +62,7 @@ export default async function ShotDetail({ params }: PageProps<"/app/shots/[shot
     <section className="mt-3 rounded-[24px] border bg-white p-4 shadow-[var(--shadow-sm)]">
       <div className="mb-2 flex items-start justify-between gap-3"><div><h2 className="text-sm font-extrabold">Vergleich</h2><p className="mt-1 text-[10px] leading-4 text-[var(--dialed-text-muted)]">Dieser Shot gegen ähnliche Extraktionen.</p></div><span className="rounded-full bg-[var(--dialed-sage-soft)] px-2 py-1 text-[9px] font-bold text-[var(--dialed-sage)]">Zeit × Ratio</span></div>
       <ShotComparisonChart shot={shot} shots={shots} />
-      <div className="mt-2 flex items-center justify-between text-[9px] text-[var(--dialed-text-muted)]"><span><i className="mr-1 inline-block size-2 rounded-full bg-[var(--dialed-espresso)]" />Dieser Shot</span><span>Zielbereich grün</span></div>
+      <div className="mt-2 flex items-center justify-between text-[9px] text-[var(--dialed-text-muted)]"><span><i className="mr-1 inline-block size-2 rounded-full bg-[var(--dialed-espresso)]" />Dieser Shot</span><span>{shot.target_recipe_snapshot ? "Persönliches Ziel grün" : "Noch kein Zielrezept"}</span></div>
     </section>
 
     <section className="mt-3 rounded-[24px] border bg-white p-4">
@@ -80,14 +91,9 @@ function ProblemItem({ title, detail, icon: Icon }: Issue) { return <div classNa
 function InfoRow({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) { return <div className="grid min-h-12 grid-cols-[36px_1fr] items-center gap-3 rounded-[16px] bg-[var(--dialed-surface-subtle)] px-3 py-2"><span className="grid size-9 place-items-center rounded-[12px] bg-white text-[var(--dialed-crema)]"><Icon className="size-4" /></span><span className="min-w-0"><small className="block text-[9px] text-[var(--dialed-text-muted)]">{label}</small><strong className="block truncate text-xs">{value}</strong></span></div>; }
 
 function shotIssues(shot: ShotWithBean): Issue[] {
-  const ratio = brewRatio(shot.final_yield_grams, shot.dose_grams);
   const drip = postStopDrip(shot.final_yield_grams, shot.stop_weight_grams);
   const issues: Issue[] = [];
   if (shot.score_coverage !== null && shot.score_coverage < 40) issues.push({ title: "Zu wenig Daten", detail: "Der Score hat eine geringe Aussagekraft.", icon: AlertTriangle });
-  if (shot.extraction_seconds !== null && shot.extraction_seconds < 25) issues.push({ title: "Läuft schnell", detail: `${formatTime(shot.extraction_seconds)} liegt unter dem Sweet-Spot.`, icon: Timer });
-  if (shot.extraction_seconds !== null && shot.extraction_seconds > 32) issues.push({ title: "Läuft langsam", detail: `${formatTime(shot.extraction_seconds)} liegt über dem Sweet-Spot.`, icon: Timer });
-  if (ratio !== null && ratio < 1.8) issues.push({ title: "Kurzer Ratio", detail: `${formatRatio(ratio)} ist unter dem Zielbereich.`, icon: Target });
-  if (ratio !== null && ratio > 2.15) issues.push({ title: "Langer Ratio", detail: `${formatRatio(ratio)} ist über dem Zielbereich.`, icon: Target });
   if (shot.flow === "minor_channeling" || shot.flow === "channeling" || shot.flow === "spritzing" || shot.channeling) issues.push({ title: "Channeling sichtbar", detail: "Verteilung, WDT und Tampen zuerst prüfen.", icon: Activity });
   if (drip !== null && drip > 3) issues.push({ title: "Hoher Nachlauf", detail: `${formatWeight(drip)} nach Pumpenstopp kann den Yield verschieben.`, icon: Droplets });
   if (shot.puck === "wet" || shot.puck === "stuck" || shot.puck === "dry") issues.push({ title: "Puck auffällig", detail: puckLabel(shot.puck), icon: Gauge });

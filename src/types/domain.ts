@@ -4,6 +4,8 @@ export type EquipmentType = "machine" | "grinder" | "basket" | "tool";
 export type ShotTaste = "very_sour" | "sour" | "balanced" | "bitter" | "very_bitter";
 export type ShotFlow = "even" | "minor_channeling" | "channeling" | "spritzing";
 export type PuckState = "dry" | "ideal" | "wet" | "stuck";
+export type GrindScaleType = "stepped" | "stepless";
+export type FinerDirection = "higher" | "lower";
 
 export type Bean = {
   id: string; user_id: string; name: string; roaster: string; roast_date: string | null;
@@ -15,6 +17,11 @@ export type Bean = {
 
 export type Equipment = {
   id: string; user_id: string; type: EquipmentType; name: string; notes: string | null;
+  grind_scale_type?: GrindScaleType | null; minimum_setting?: number | null; maximum_setting?: number | null;
+  micro_step?: number | null; finer_direction?: FinerDirection | null; clicks_per_rotation?: number | null;
+  display_unit?: string | null; temperature_adjustable?: boolean | null; minimum_temperature?: number | null;
+  maximum_temperature?: number | null; supports_preinfusion?: boolean | null; supports_pressure_adjustment?: boolean | null;
+  nominal_dose_grams?: number | null; minimum_dose_grams?: number | null; maximum_dose_grams?: number | null;
   archived_at: string | null; created_at: string; updated_at: string;
 };
 
@@ -25,6 +32,14 @@ export type Shot = {
   extraction_seconds: number | null; stop_weight_grams: number | null; final_yield_grams: number | null;
   taste: ShotTaste | null; flow: ShotFlow | null; puck: PuckState | null; notes: string | null; score: number | null;
   overall_taste_rating: number | null; tds: number | null; flow_evenness: number | null; channeling: boolean | null;
+  target_recipe_snapshot?: Record<string, unknown> | null; first_drop_seconds?: number | null; pressure_bar?: number | null;
+  taste_balance?: number | null; sweetness?: number | null; acidity_quality?: number | null; bitterness_quality?: number | null;
+  body_rating?: number | null; clarity_rating?: number | null; aroma_rating?: number | null; aftertaste_rating?: number | null;
+  astringency_severity?: number | null; channeling_severity?: number | null; spraying_severity?: number | null;
+  flow_evenness_rating?: number | null; early_blonding_severity?: number | null; puck_damage_severity?: number | null;
+  shower_screen_imprint?: boolean | null; puck_screen_imprint?: boolean | null; strength_perception?: number | null;
+  tamp_level?: "level" | "slanted" | null; applied_recommendation_id?: string | null; recommendation_applied?: boolean | null;
+  recommendation_changes?: Record<string, unknown>[] | null; experiment_mode?: boolean;
   score_coverage: number | null; score_status: "Geringe Aussagekraft" | "Vorläufig" | "Aussagekräftig" | "Sehr detailliert" | null;
   created_at: string; updated_at: string;
 };
@@ -35,5 +50,28 @@ export type UserSettings = {
   user_id: string; default_machine_id: string | null; default_grinder_id: string | null;
   last_bean_id: string | null; auto_fill: boolean; default_prep_tools: string[];
   dial_in_suggestions_enabled: boolean; roast_age_warning_enabled: boolean;
-  roast_age_warning_days: number; created_at: string; updated_at: string;
+  roast_age_warning_days: number; reference_shot_id?: string | null; starter_recipe?: Record<string, unknown> | null;
+  created_at: string; updated_at: string;
+};
+
+export type TargetRecipe = {
+  id: string; user_id: string; bean_id: string | null; machine_id: string | null; grinder_id: string | null;
+  basket_id: string | null; source_shot_id: string | null; name: string; recipe_snapshot: Record<string, unknown>;
+  is_active: boolean; created_at: string; updated_at: string;
+};
+
+export type RecommendationBundleRecord = {
+  id: string; user_id: string; source_shot_id: string; bean_id: string | null; machine_id: string | null;
+  grinder_id: string | null; basket_id: string | null; target_recipe_snapshot: Record<string, unknown> | null;
+  engine_version: string; primary_action: Record<string, unknown>; execution_adjustments: Record<string, unknown> | null;
+  confidence: number; confidence_label: "Niedrige Sicherheit" | "Mittlere Sicherheit" | "Hohe Sicherheit";
+  evidence: Record<string, unknown>[]; status: "active" | "applied" | "dismissed" | "superseded" | "completed";
+  applied_at: string | null; dismissed_at: string | null; resulting_shot_id: string | null;
+  user_feedback: "helpful" | "not_helpful" | null; outcome: Record<string, unknown> | null;
+  created_at: string; updated_at: string;
+};
+
+export type RecommendationSuppression = {
+  id: string; user_id: string; setup_key: string; bean_id: string | null; machine_id: string | null;
+  grinder_id: string | null; basket_id: string | null; created_at: string;
 };
