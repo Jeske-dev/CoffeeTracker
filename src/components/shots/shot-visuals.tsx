@@ -12,22 +12,19 @@ const tasteBadgeOptions = [
     value: "sour" as const,
     label: "Sauer",
     icon: Citrus,
-    badge: "bg-[var(--dialed-gold)]/14 text-[#876A22]",
-    active: "border-[var(--dialed-gold)]/35 bg-[var(--dialed-gold)]/14 text-[#765B1B]",
+    badge: "border border-black bg-white text-black",
   },
   {
     value: "balanced" as const,
     label: "Ausgewogen",
     icon: Scale,
-    badge: "bg-[var(--dialed-sage-soft)] text-[var(--dialed-sage)]",
-    active: "border-[var(--dialed-sage)]/35 bg-[var(--dialed-sage-soft)] text-[var(--dialed-sage)]",
+    badge: "border border-black bg-black text-white",
   },
   {
     value: "bitter" as const,
     label: "Bitter",
     icon: Coffee,
-    badge: "bg-[var(--dialed-rose-soft)] text-[var(--dialed-rose)]",
-    active: "border-[var(--dialed-rose)]/30 bg-[var(--dialed-rose-soft)] text-[var(--dialed-rose)]",
+    badge: "border border-black bg-[#525252] text-white",
   },
 ] as const;
 
@@ -38,8 +35,8 @@ export function TasteBadge({ taste, className, iconOnly = false }: { taste: Shot
 
   return <span className={cn(
     "inline-flex min-h-7 shrink-0 items-center gap-1.5 text-xs font-bold",
-    iconOnly ? "size-7 justify-center rounded-[9px] p-0" : "rounded-full px-2.5",
-    option?.badge ?? "bg-[var(--dialed-surface-subtle)] text-[var(--dialed-text-muted)]",
+    iconOnly ? "size-7 justify-center p-0" : "px-2.5 py-1 text-[10px] tracking-[.08em] uppercase",
+    option?.badge ?? "border bg-[var(--dialed-surface-subtle)] text-[var(--dialed-text-muted)]",
     className,
   )} aria-label={iconOnly ? `Geschmack: ${label}` : undefined} title={iconOnly ? label : undefined}>
     <Icon aria-hidden="true" className="size-3.5" />
@@ -48,11 +45,11 @@ export function TasteBadge({ taste, className, iconOnly = false }: { taste: Shot
 }
 
 const tasteScalePresentation: Record<TasteLevel, { icon: typeof Scale; active: string }> = {
-  too_sour: { icon: Citrus, active: "border-[var(--dialed-gold)]/35 bg-[var(--dialed-gold)]/14 text-[#765B1B]" },
-  slightly_sour: { icon: Minus, active: "border-[var(--dialed-gold)]/35 bg-[var(--dialed-gold)]/10 text-[#765B1B]" },
-  balanced: { icon: Scale, active: "border-[var(--dialed-sage)]/35 bg-[var(--dialed-sage-soft)] text-[var(--dialed-sage)]" },
-  slightly_bitter: { icon: Plus, active: "border-[var(--dialed-rose)]/25 bg-[var(--dialed-rose-soft)]/60 text-[var(--dialed-rose)]" },
-  too_bitter: { icon: Coffee, active: "border-[var(--dialed-rose)]/30 bg-[var(--dialed-rose-soft)] text-[var(--dialed-rose)]" },
+  too_sour: { icon: Citrus, active: "border-black bg-[var(--crema-surface-high)] text-black" },
+  slightly_sour: { icon: Minus, active: "border-black bg-[var(--crema-surface-mid)] text-black" },
+  balanced: { icon: Scale, active: "border-black bg-black text-white" },
+  slightly_bitter: { icon: Plus, active: "border-black bg-[#757575] text-white" },
+  too_bitter: { icon: Coffee, active: "border-black bg-[#1a1c1c] text-white" },
 };
 
 export function TasteScale({
@@ -70,9 +67,9 @@ export function TasteScale({
     <div className="grid grid-cols-5 gap-1" aria-label={`Geschmack: ${activeLabel ?? "nicht angegeben"}`}>
       {TASTE_LEVELS.map((level) => <TasteOption key={level} level={level} selected={level === activeTaste} onSelect={onChange} />)}
     </div>
-    <div aria-hidden="true" className="mt-2 flex items-center justify-between gap-3 text-[10px] font-bold">
-      <span className="text-[#765B1B]">Zu sauer</span>
-      <span className="text-[var(--dialed-rose)]">Zu bitter</span>
+    <div aria-hidden="true" className="mt-2 flex items-center justify-between gap-3 text-[10px] font-semibold tracking-[.08em] text-[var(--dialed-text-secondary)] uppercase">
+      <span>Zu sauer</span>
+      <span>Zu bitter</span>
     </div>
   </div>;
 }
@@ -81,8 +78,8 @@ function TasteOption({ level, selected, onSelect }: { level: TasteLevel; selecte
   const { label, taste, rating } = TASTE_LEVEL_VALUES[level];
   const { icon: Icon, active } = tasteScalePresentation[level];
   const className = cn(
-    "grid min-h-14 min-w-0 place-items-center rounded-[10px] border p-2",
-    selected ? active : "border-transparent bg-[var(--dialed-surface-subtle)] text-[var(--dialed-text-muted)]",
+    "grid min-h-14 min-w-0 place-items-center border p-2",
+    selected ? active : "border-[var(--crema-outline-soft)] bg-white text-[var(--dialed-text-muted)]",
   );
   const content = <Icon aria-hidden="true" className="size-[18px]" />;
 
@@ -95,7 +92,7 @@ function TasteOption({ level, selected, onSelect }: { level: TasteLevel; selecte
 export function YieldFlowGraphic({ stopWeight, finalWeight }: { stopWeight: number | null; finalWeight: number | null }) {
   const overshoot = postStopDrip(finalWeight, stopWeight);
 
-  return <div className="rounded-[14px] bg-[var(--dialed-surface-subtle)] p-3.5" aria-label={`Gewichtsverlauf: Stop ${formatWeight(stopWeight)}, final ${formatWeight(finalWeight)}, Nachlauf ${formatWeight(overshoot)}`}>
+  return <div className="border bg-[var(--dialed-surface-subtle)] p-4" aria-label={`Gewichtsverlauf: Stop ${formatWeight(stopWeight)}, final ${formatWeight(finalWeight)}, Nachlauf ${formatWeight(overshoot)}`}>
     <div className="flex items-center justify-between gap-3">
       <strong className="text-sm">Gewichtsverlauf</strong>
       <span className="text-xs text-[var(--dialed-text-muted)]">Stop bis Tasse</span>
@@ -132,7 +129,7 @@ export function YieldInputGraphic({
       <WeightControl label="Stop-Gewicht" icon={<CircleStop aria-hidden="true" className="size-3.5" />} control={stopControl} />
       <WeightControl label="Finales Gewicht" icon={<Coffee aria-hidden="true" className="size-3.5" />} control={finalControl} />
     </div>
-    <output aria-label="Berechneter Nachlauf" className="mt-2 flex min-h-9 items-center justify-between gap-3 rounded-[10px] bg-[var(--dialed-surface-subtle)] px-3 text-xs">
+    <output aria-label="Berechneter Nachlauf" className="mt-2 flex min-h-10 items-center justify-between gap-3 border bg-[var(--dialed-surface-subtle)] px-3 text-xs">
       <span className="text-[var(--dialed-text-muted)]">Nachlauf</span>
       <strong>{formatWeight(overshoot)}</strong>
     </output>
@@ -146,20 +143,20 @@ function YieldBar({ stopWeight, finalWeight }: { stopWeight: number | null; fina
   const firstWidth = finalWeight === null ? stopWidth : Math.min(stopWidth, finalWidth);
   const afterStopWidth = Math.max(0, finalWidth - stopWidth);
 
-  return <div className="relative mt-4 h-3 overflow-hidden rounded-full bg-black/[.06]" aria-hidden="true">
+  return <div className="relative mt-4 h-3 overflow-hidden border border-black bg-[var(--crema-surface-high)]" aria-hidden="true">
     <span className="absolute inset-y-0 left-0 bg-[var(--dialed-espresso)]" style={{ width: `${firstWidth}%` }} />
-    <span className="absolute inset-y-0 bg-[var(--dialed-crema)]" style={{ left: `${stopWidth}%`, width: `${afterStopWidth}%` }} />
-    {stopWeight !== null && <span className="absolute inset-y-[-3px] w-0.5 bg-white shadow-[0_0_0_1px_rgba(43,27,22,.2)]" style={{ left: `calc(${stopWidth}% - 1px)` }} />}
+    <span className="absolute inset-y-0 bg-[#757575]" style={{ left: `${stopWidth}%`, width: `${afterStopWidth}%` }} />
+    {stopWeight !== null && <span className="absolute inset-y-[-3px] w-0.5 bg-white" style={{ left: `calc(${stopWidth}% - 1px)` }} />}
   </div>;
 }
 
 function WeightControl({ label, icon, control }: { label: string; icon: ReactNode; control: ReactNode }) {
-  return <div className="min-w-0 rounded-[12px] border bg-white px-3 py-2.5">
+  return <div className="min-w-0 border bg-white px-3 py-2.5">
     <small className="flex items-center gap-1.5 text-[10px] font-medium text-[var(--dialed-text-muted)]">{icon}{label}</small>
     <div className="min-w-0">{control}</div>
   </div>;
 }
 
 function WeightValue({ label, value, highlighted = false }: { label: string; value: string; highlighted?: boolean }) {
-  return <DataMetric label={label} value={value} valueClassName={cn("mt-1 text-sm", highlighted && "text-[var(--dialed-crema)]")} />;
+  return <DataMetric label={label} value={value} valueClassName={cn("mt-1 text-sm", highlighted && "font-bold text-black")} />;
 }

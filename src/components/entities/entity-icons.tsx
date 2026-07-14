@@ -12,9 +12,9 @@ const equipmentIcons: Record<EquipmentType, LucideIcon> = {
 };
 
 const frameSizes = {
-  sm: "size-7 rounded-[9px]",
-  md: "size-9 rounded-[11px]",
-  lg: "size-[46px] rounded-[15px]",
+  sm: "size-7",
+  md: "size-9",
+  lg: "size-[46px]",
 } as const;
 
 export function EntityIconFrame({
@@ -28,7 +28,7 @@ export function EntityIconFrame({
   className?: string;
   style?: CSSProperties;
 }) {
-  return <span style={style} className={cn("grid shrink-0 place-items-center bg-[var(--dialed-surface-subtle)] text-[var(--dialed-crema)]", frameSizes[size], className)}>{children}</span>;
+  return <span style={style} className={cn("grid shrink-0 place-items-center border border-[var(--crema-outline-soft)] bg-white text-black", frameSizes[size], className)}>{children}</span>;
 }
 
 export function BeanIcon({ origin, className }: { origin?: string | null; className?: string }) {

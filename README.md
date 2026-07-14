@@ -17,6 +17,7 @@ Dialed ist ein mobile-first Brew Journal für Siebträger-Espresso. Ein Shot wir
 Dialed ist server-first aufgebaut: App-Routen laden nur ihre benötigten Daten, reine Feature-Funktionen bereiten Formdefaults und Diagrammserien vor, und Client Components übernehmen ausschließlich Interaktion. Supabase-Zeilen werden an einer Datenzugriffsgrenze in das kleinere Domain-Modell normalisiert.
 
 - [Architektur, Datenflüsse und Designentscheidungen](docs/ARCHITECTURE.md)
+- [Monochrome-Crema-Designsystem und UI-Regeln](docs/DESIGN_SYSTEM.md)
 - [Teststrategie, Erweiterungs-Checklisten und Definition of Done](docs/QUALITY.md)
 - [Performance-Baseline und Query-Audit](docs/PERFORMANCE_AUDIT.md)
 
@@ -32,6 +33,12 @@ src/components/          Feature UI und gemeinsame UI-Bausteine
 src/lib/                 Validierung, Formatierung, Cache und Infrastruktur
 supabase/migrations/     Schema, RLS, Trigger und Indizes
 ```
+
+## Frontend-Design
+
+Dialed nutzt das Monochrome-Crema-System: Playfair Display strukturiert Überschriften, Inter bleibt für Bedienung und Messwerte reserviert. Die Oberfläche arbeitet mit Schwarz, Weiß und klar abgestuften Grautönen, scharfen Kanten, 1-px-Linien und einem 8-px-Abstandsraster. Hierarchie entsteht durch Typografie, Invertierung und Weißraum statt durch Verläufe, Schatten oder dekorative Akzentfarben. Rot ist ausschließlich echten Fehlerzuständen vorbehalten.
+
+Die zentralen Tokens liegen in `src/app/globals.css`. Gemeinsame Controls unter `src/components/ui/` bilden die visuelle Grenze; Feature-Komponenten sollen diese Bausteine verwenden, damit Auth, Dashboard, Shots, Bohnen und Setup konsistent bleiben. Die vollständigen Regeln und Erweiterungshinweise stehen in [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md).
 
 ## Voraussetzungen
 

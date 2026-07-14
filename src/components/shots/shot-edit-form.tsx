@@ -65,7 +65,7 @@ export function ShotEditForm({ userId, shot, beans, equipment }: { userId: strin
     <input type="hidden" {...register("machineId", nullableString)} />
     <input type="hidden" {...register("grinderId", nullableString)} />
     <input type="hidden" {...register("basketId", nullableString)} />
-    <div className="scrollbar-none min-h-0 overflow-y-auto px-[18px] py-5 pb-6"><div className="mx-auto max-w-[680px]">
+    <div className="scrollbar-none min-h-0 overflow-y-auto px-6 py-6 pb-8"><div className="mx-auto max-w-[680px]">
       <ShotSetupSection fields={{
         shotAt: { value: <input aria-label="Zeitpunkt" type="datetime-local" className="h-9 w-full bg-transparent font-bold outline-none" {...register("shotAt")} /> },
         bean: { value: <BeanSelectControl label="Bohne" options={selectableBeans} value={values.beanId} onValueChange={(value) => setValue("beanId", value, { shouldDirty: true, shouldValidate: true })} /> },
@@ -105,14 +105,14 @@ export function ShotEditForm({ userId, shot, beans, equipment }: { userId: strin
         errors.finalYieldGrams?.message,
       ]} />
     </div></div>
-    <footer className="z-10 flex gap-2 border-t bg-[rgba(251,248,243,.96)] px-[18px] pt-3 pb-[calc(14px+env(safe-area-inset-bottom))] shadow-[0_-8px_20px_rgba(54,34,24,.05)] backdrop-blur">
-      <Button type="button" variant="secondary" onClick={() => router.back()} className="h-12 flex-1 rounded-full">Abbrechen</Button>
-      <Button disabled={pending} type="submit" className="h-12 flex-1 rounded-full bg-[var(--dialed-crema)] text-[var(--dialed-text)]">{pending ? "Speichert ..." : "Änderungen speichern"}</Button>
+    <footer className="z-10 flex gap-2 border-t border-black bg-white px-6 pt-3 pb-[calc(14px+env(safe-area-inset-bottom))]">
+      <Button type="button" variant="secondary" onClick={() => router.back()} className="h-12 flex-1">Abbrechen</Button>
+      <Button disabled={pending} type="submit" className="h-12 flex-1 bg-black text-white">{pending ? "Speichert ..." : "Änderungen speichern"}</Button>
     </footer>
   </form>;
 }
 
 function FormErrors({ errors }: { errors: Array<string | undefined> }) {
   const message = errors.find((error): error is string => Boolean(error));
-  return message ? <div role="alert" className="mt-3 rounded-[16px] bg-[var(--dialed-rose-soft)] p-3 text-xs text-[var(--dialed-rose)]">{message}</div> : null;
+  return message ? <div role="alert" className="mt-3 border border-[var(--crema-error)] bg-[var(--dialed-rose-soft)] p-3 text-xs text-[var(--dialed-rose)]">{message}</div> : null;
 }

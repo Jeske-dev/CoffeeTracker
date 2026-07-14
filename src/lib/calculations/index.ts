@@ -4,9 +4,9 @@ import type { Shot, ShotFlow, ShotTaste } from "@/types/domain";
 export const SCORING_VERSION = "2.0.0-simple" as const;
 
 export const TASTE_COLORS: Record<ShotTaste, string> = {
-  sour: "#D6B262",
-  balanced: "#6F806F",
-  bitter: "#B5745B",
+  sour: "#a3a3a3",
+  balanced: "#000000",
+  bitter: "#525252",
 };
 
 export function brewRatio(finalYieldGrams: number | null, doseGrams: number | null) {

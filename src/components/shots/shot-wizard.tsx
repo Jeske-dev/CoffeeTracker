@@ -167,20 +167,20 @@ export function ShotWizard({
     ? <TargetHint value={targets.grindSetting ?? "–"} />
     : undefined;
   return <div className="fixed inset-0 z-50 grid bg-[var(--dialed-surface)] min-[561px]:absolute">
-    <header className="border-b bg-[rgba(251,248,243,.95)] px-[18px] pt-[calc(16px+env(safe-area-inset-top))] pb-3 backdrop-blur">
+    <header className="border-b border-black bg-white px-6 pt-[calc(16px+env(safe-area-inset-top))] pb-4">
       <div className="grid grid-cols-[44px_1fr_44px] items-center">
-        <button type="button" onClick={close} aria-label="Schließen" title="Schließen" className="grid size-11 place-items-center rounded-full bg-[var(--dialed-surface-subtle)]"><X className="size-[18px]" /></button>
-        <h1 className="text-center font-display text-[22px]">Neuer Shot</h1>
+        <button type="button" onClick={close} aria-label="Schließen" title="Schließen" className="grid size-11 place-items-center border border-black bg-white hover:bg-black hover:text-white"><X className="size-[18px]" /></button>
+        <h1 className="text-center font-display text-[22px] font-semibold">Neuer Shot</h1>
       </div>
-      <div className="mt-3.5 grid grid-cols-3 gap-1.5">{[1, 2, 3].map((item) => <span key={item} className={`h-1 rounded-full ${item <= step ? "bg-[var(--dialed-crema)]" : "bg-[var(--dialed-surface-strong)]"}`} />)}</div>
-      <div className="mt-1.5 grid grid-cols-3 text-center text-[10px] text-[var(--dialed-text-muted)]">{["Rezept", "Extraktion", "Bewertung"].map((label, index) => <span key={label} className={step === index + 1 ? "font-extrabold text-[var(--dialed-text)]" : ""}>{label}</span>)}</div>
+      <div className="mt-4 grid grid-cols-3 border border-black">{[1, 2, 3].map((item) => <span key={item} className={`h-1.5 border-r border-black last:border-r-0 ${item <= step ? "bg-black" : "bg-white"}`} />)}</div>
+      <div className="mt-2 grid grid-cols-3 text-center text-[9px] font-semibold tracking-[.08em] text-[var(--dialed-text-muted)] uppercase">{["Rezept", "Extraktion", "Bewertung"].map((label, index) => <span key={label} className={step === index + 1 ? "text-black" : ""}>{label}</span>)}</div>
     </header>
     <form onSubmit={handleSubmit(submit)} className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto]">
       <input type="hidden" {...register("beanId")} />
       <input type="hidden" {...register("machineId", nullableString)} />
       <input type="hidden" {...register("grinderId", nullableString)} />
       <input type="hidden" {...register("basketId", nullableString)} />
-      <div className="scrollbar-none min-h-0 overflow-y-auto px-[18px] py-[19px] pb-6"><div className="mx-auto max-w-[680px]">
+      <div className="scrollbar-none min-h-0 overflow-y-auto px-6 py-6 pb-8"><div className="mx-auto max-w-[680px]">
         {step === 1 && <>
           <PageTitle>Rezept</PageTitle>
           <ShotRecipeSection fields={{
@@ -221,18 +221,18 @@ export function ShotWizard({
           />
         </>}
       </div></div>
-      <footer className="flex gap-2.5 border-t bg-[rgba(251,248,243,.94)] px-[18px] pt-3 pb-[calc(14px+env(safe-area-inset-bottom))] backdrop-blur">
-        <Button type="button" variant="secondary" onClick={() => setStep((current) => Math.max(1, current - 1) as ShotFormStep)} className={`h-12 flex-1 rounded-full ${step === 1 ? "invisible" : ""}`}><ChevronLeft />Zurück</Button>
+      <footer className="flex gap-2.5 border-t border-black bg-white px-6 pt-3 pb-[calc(14px+env(safe-area-inset-bottom))]">
+        <Button type="button" variant="secondary" onClick={() => setStep((current) => Math.max(1, current - 1) as ShotFormStep)} className={`h-12 flex-1 ${step === 1 ? "invisible" : ""}`}><ChevronLeft />Zurück</Button>
         {step < 3
-          ? <Button key={`next-${step}`} type="button" onClick={(event) => { event.preventDefault(); void next(); }} className="h-12 flex-1 rounded-full bg-[var(--dialed-crema)] text-[var(--dialed-text)]">Weiter</Button>
-          : <Button type="submit" disabled={pending || !isOnline} className="h-12 flex-1 rounded-full bg-[var(--dialed-crema)] text-[var(--dialed-text)]">{pending ? "Speichert ..." : isOnline ? "Shot speichern" : "Offline – Entwurf bleibt erhalten"}</Button>}
+          ? <Button key={`next-${step}`} type="button" onClick={(event) => { event.preventDefault(); void next(); }} className="h-12 flex-1 bg-black text-white">Weiter</Button>
+          : <Button type="submit" disabled={pending || !isOnline} className="h-12 flex-1 bg-black text-white">{pending ? "Speichert ..." : isOnline ? "Shot speichern" : "Offline – Entwurf bleibt erhalten"}</Button>}
       </footer>
     </form>
   </div>;
 }
 
 function PageTitle({ children }: { children: string }) {
-  return <h2 className="mb-4 font-display text-[25px] font-medium">{children}</h2>;
+  return <h2 className="mb-5 font-display text-[26px] font-semibold leading-tight">{children}</h2>;
 }
 
 function FormError({ text }: { text?: string }) {
@@ -240,5 +240,5 @@ function FormError({ text }: { text?: string }) {
 }
 
 function TargetHint({ value }: { value: string }) {
-  return <p aria-label={`Zielwert aus deinen letzten Shots: ${value}`} className="mt-1.5 flex items-center gap-1.5 px-1 text-xs leading-4 text-[var(--dialed-sage)]"><Info aria-hidden="true" className="size-3.5 shrink-0" /><span>Ziel: <strong>{value}</strong></span></p>;
+  return <p aria-label={`Zielwert aus deinen letzten Shots: ${value}`} className="mt-2 flex items-center gap-1.5 border-l-2 border-black px-2 text-xs leading-4 text-black"><Info aria-hidden="true" className="size-3.5 shrink-0" /><span>Ziel: <strong>{value}</strong></span></p>;
 }

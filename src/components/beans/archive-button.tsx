@@ -12,7 +12,7 @@ export function ArchiveButton({ userId, id, archived }: { userId: string; id: st
   const [pending, startTransition] = useTransition();
   const { invalidateBeanData } = usePrivateCache();
 
-  return <Button variant="secondary" disabled={pending} className="rounded-full" onClick={() => startTransition(async () => {
+  return <Button variant="secondary" disabled={pending} onClick={() => startTransition(async () => {
     const next = !isArchived;
     setIsArchived(next);
     const result = await archiveBean(id, next);

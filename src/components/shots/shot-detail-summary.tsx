@@ -11,7 +11,7 @@ import { TasteScale, YieldFlowGraphic } from "./shot-visuals";
 export function ShotDetailSummary({ shot }: { shot: ShotWithBean }) {
   return <>
     <SectionCard title="Extraktion auf einen Blick" description="Die entscheidenden Werte dieses Shots" icon={Gauge} tone="crema">
-      <div className="grid grid-cols-3 divide-x border-y py-3">
+      <div className="grid grid-cols-3 divide-x border-y border-black py-3">
         <DataMetric icon={Gauge} label="Mahlgrad" value={shot.grind_setting ?? "—"} align="center" className="px-2 first:pl-0 last:pr-0" valueClassName="text-[15px]" />
         <DataMetric icon={Timer} label="Zeit" value={formatTime(shot.extraction_seconds)} align="center" className="px-2 first:pl-0 last:pr-0" valueClassName="text-[15px]" />
         <DataMetric icon={Weight} label="Dosis" value={formatWeight(shot.dose_grams)} align="center" className="px-2 first:pl-0 last:pr-0" valueClassName="text-[15px]" />
@@ -43,7 +43,7 @@ export function ShotMoreDetails({
   const FlowIcon = shot.flow ? shotFlowIcons[shot.flow] : CircleHelp;
   const PuckIcon = shot.puck ? puckStateIcons[shot.puck] : CircleHelp;
 
-  return <SectionCard title="Weitere Angaben" icon={Scale} className="mt-3 overflow-hidden" bodyClassName="-mx-4 -mb-4">
+  return <SectionCard title="Weitere Angaben" icon={Scale} className="mt-4 overflow-hidden" bodyClassName="-mx-5 -mb-5">
     <div className="grid sm:grid-cols-2">
       <EntityDetail label="Maschine"><EquipmentIdentity equipment={machine} type="machine" fallback="Nicht angegeben" /></EntityDetail>
       <EntityDetail label="Mühle"><EquipmentIdentity equipment={grinder} type="grinder" fallback="Nicht angegeben" /></EntityDetail>
@@ -57,12 +57,12 @@ export function ShotMoreDetails({
 }
 
 function EntityDetail({ label, children }: { label: string; children: React.ReactNode }) {
-  return <LabeledValue label={label} className="border-t px-4 py-3.5 sm:odd:border-r">{children}</LabeledValue>;
+  return <LabeledValue label={label} className="border-t px-5 py-4 sm:odd:border-r">{children}</LabeledValue>;
 }
 
 function DetailRow({ icon: Icon, label, value, wide = false }: { icon: LucideIcon; label: string; value: string; wide?: boolean }) {
-  return <div className={`${wide ? "sm:col-span-2" : "sm:odd:border-r"} grid min-w-0 grid-cols-[32px_minmax(0,1fr)] items-start gap-2.5 border-t px-4 py-3.5`}>
-    <span className="grid size-8 place-items-center rounded-[10px] bg-[var(--dialed-surface-subtle)] text-[var(--dialed-text-secondary)]"><Icon aria-hidden="true" className="size-4" /></span>
+  return <div className={`${wide ? "sm:col-span-2" : "sm:odd:border-r"} grid min-w-0 grid-cols-[32px_minmax(0,1fr)] items-start gap-3 border-t px-5 py-4`}>
+    <span className="grid size-8 place-items-center border bg-[var(--dialed-surface-subtle)] text-black"><Icon aria-hidden="true" className="size-4" /></span>
     <DataMetric label={label} value={value} truncateValue={false} valueClassName="mt-1 whitespace-normal text-xs leading-5" />
   </div>;
 }

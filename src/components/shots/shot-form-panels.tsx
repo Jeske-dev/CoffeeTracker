@@ -29,9 +29,9 @@ export function ShotSetupSummary({
       <LabeledValue label="Maschine"><EquipmentIdentity equipment={machine} type="machine" fallback="Nicht festgelegt" /></LabeledValue>
       <LabeledValue label="Mühle"><EquipmentIdentity equipment={grinder} type="grinder" fallback="Nicht festgelegt" /></LabeledValue>
     </div>
-    <p className="mt-4 flex items-start gap-2 border-t pt-3 text-xs leading-5 text-[var(--dialed-text-muted)]">
+    <p className="mt-5 flex items-start gap-2 border-t pt-4 text-xs leading-5 text-[var(--dialed-text-muted)]">
       <Info aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
-      <span>Maschine und Mühle gelten für den Shot. <Link href="/app/setup" className="font-bold text-[var(--dialed-sage)]">In den Einstellungen ändern</Link></span>
+      <span>Maschine und Mühle gelten für den Shot. <Link href="/app/setup" className="font-semibold text-black underline underline-offset-4">In den Einstellungen ändern</Link></span>
     </p>
   </SectionCard>;
 }
@@ -75,7 +75,7 @@ function StopWeightTipCard({ tip }: { tip: StopWeightTip }) {
       ? `Aus ${sampleLabel} wurde der Nachlauf proportional auf ${formatWeight(tip.targetFinalWeightGrams)} hochgerechnet.`
       : "Startwert per Dreisatz: 34 g Stop bei 36 g in der Tasse.";
 
-  return <aside aria-label={`Stopptipp: bei ${formatWeight(tip.recommendedStopWeightGrams)} stoppen`} className="mt-3 flex items-start gap-2.5 rounded-[12px] border border-[var(--dialed-sage)]/20 bg-[var(--dialed-sage-soft)] px-3 py-2.5 text-[var(--dialed-sage)]">
+  return <aside aria-label={`Stopptipp: bei ${formatWeight(tip.recommendedStopWeightGrams)} stoppen`} className="mt-3 flex items-start gap-2.5 border border-black bg-[var(--crema-surface-mid)] px-3 py-3 text-black">
     <Lightbulb aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
     <div className="min-w-0">
       <strong className="block text-xs">Bei etwa {formatWeight(tip.recommendedStopWeightGrams)} stoppen</strong>

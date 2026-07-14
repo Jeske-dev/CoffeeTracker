@@ -43,8 +43,8 @@ type ReviewFields = {
 export function ShotField({ label, field }: { label: string; field: FieldValue }) {
   const Icon = field.icon;
   return <div className={`${field.wide ? "col-span-2" : ""} min-w-0`} data-shot-field={label}>
-    <div className={`min-h-14 rounded-[16px] border px-3 py-2.5 transition-colors ${field.highlighted ? "border-[var(--dialed-sage)]/35 bg-[var(--dialed-sage-soft)]/45" : "bg-white"}`}>
-      <small className="mb-1 flex items-center gap-1.5 text-xs font-medium text-[var(--dialed-text-muted)]">{Icon && <Icon aria-hidden="true" className="size-3.5" />}{label}</small>
+    <div className={`min-h-14 border-b px-0 py-2.5 transition-colors ${field.highlighted ? "border-black bg-[var(--crema-surface-mid)] px-2" : "border-[var(--crema-outline-soft)] bg-transparent"}`}>
+      <small className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold tracking-[.08em] text-[var(--dialed-text-muted)] uppercase">{Icon && <Icon aria-hidden="true" className="size-3.5" />}{label}</small>
       <div className="min-w-0 text-xs">{field.value}</div>
     </div>
     {field.hint}
@@ -52,7 +52,7 @@ export function ShotField({ label, field }: { label: string; field: FieldValue }
 }
 
 function FieldGrid({ fields }: { fields: Array<[string, FieldValue | undefined]> }) {
-  return <div className="grid grid-cols-2 gap-2">
+  return <div className="grid grid-cols-2 gap-x-4 gap-y-3">
     {fields.flatMap(([label, field]) => field ? [<ShotField key={label} label={label} field={field} />] : [])}
   </div>;
 }

@@ -13,8 +13,8 @@ export default async function EditShotPage({ params }: PageProps<"/app/shots/[sh
   if (!shot) notFound();
   const beanName = beans.find((bean) => bean.id === shot.bean_id)?.name ?? "Shot";
   return <div className="fixed inset-0 z-50 grid grid-rows-[auto_auto_1fr] bg-[var(--dialed-surface)] min-[561px]:absolute">
-    <header className="flex items-center justify-between border-b px-[18px] pt-[calc(16px+env(safe-area-inset-top))] pb-3"><Link href={`/app/shots/${shot.id}`} aria-label="Zurück" className="grid size-[38px] place-items-center rounded-full bg-[var(--dialed-surface-subtle)]"><ArrowLeft className="size-4" /></Link><h1 className="font-display text-[22px]">Shot bearbeiten</h1><span className="w-[38px]" /></header>
-    <div className="flex items-center justify-between border-b px-[18px] py-3 text-[10px] text-[var(--dialed-text-muted)]"><span>{beanName}</span><span>{formatDateTime(shot.shot_at)}</span></div>
+    <header className="flex items-center justify-between border-b border-black px-6 pt-[calc(16px+env(safe-area-inset-top))] pb-4"><Link href={`/app/shots/${shot.id}`} aria-label="Zurück" className="grid size-11 place-items-center border border-black bg-white hover:bg-black hover:text-white"><ArrowLeft className="size-4" /></Link><h1 className="font-display text-[22px] font-semibold">Shot bearbeiten</h1><span className="w-11" /></header>
+    <div className="flex items-center justify-between border-b border-black px-6 py-3 text-[10px] font-semibold tracking-[.06em] text-[var(--dialed-text-muted)] uppercase"><span>{beanName}</span><span>{formatDateTime(shot.shot_at)}</span></div>
     <div className="relative min-h-0"><ShotEditForm userId={userId} shot={shot} beans={beans} equipment={equipment} /></div>
   </div>;
 }

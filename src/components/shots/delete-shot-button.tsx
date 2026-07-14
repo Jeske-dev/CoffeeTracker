@@ -33,5 +33,5 @@ export function DeleteShotButton({ userId, id, beanId }: { userId: string; id: s
     }
   });
 
-  return <AlertDialog><AlertDialogTrigger render={<Button variant="destructive" className="rounded-full"/>}><Trash2/>Shot löschen</AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Shot wirklich löschen?</AlertDialogTitle><AlertDialogDescription>Diese Extraktion wird dauerhaft entfernt. Das kann nicht rückgängig gemacht werden.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Abbrechen</AlertDialogCancel><AlertDialogAction disabled={pending} onClick={remove}>Endgültig löschen</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>;
+  return <AlertDialog><AlertDialogTrigger render={<Button variant="destructive" className="min-h-12"/>}><Trash2/>Shot löschen</AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Shot wirklich löschen?</AlertDialogTitle><AlertDialogDescription>Diese Extraktion wird dauerhaft entfernt. Das kann nicht rückgängig gemacht werden.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Abbrechen</AlertDialogCancel><AlertDialogAction disabled={pending} onClick={remove}>Endgültig löschen</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>;
 }

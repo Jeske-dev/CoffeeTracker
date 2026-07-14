@@ -23,7 +23,7 @@ export function AuthForm({mode,action}:{mode:Mode;action:(state:AuthState,data:F
     {mode!=="update"&&<Field id="email" label="E-Mail" error={errors.email?.message}><Input id="email" type="email" autoComplete="email" placeholder="du@beispiel.de" {...register("email")} /></Field>}
     {mode!=="forgot"&&<Field id="password" label={mode==="update"?"Neues Passwort":"Passwort"} error={errors.password?.message}><Input id="password" type="password" autoComplete={mode==="login"?"current-password":"new-password"} {...register("password")} /></Field>}
     {state.message&&<Alert variant={state.status==="error"?"destructive":"default"}><AlertDescription>{state.message}</AlertDescription></Alert>}
-    <Button type="submit" disabled={pending} className="h-12 w-full rounded-full bg-[var(--dialed-espresso)] text-white hover:bg-[var(--dialed-espresso-raised)]">{pending?"Einen Moment …":({login:"Anmelden",signup:"Konto erstellen",forgot:"Link anfordern",update:"Passwort speichern"})[mode]}</Button>
+    <Button type="submit" disabled={pending} className="mt-2 h-12 w-full bg-black text-white hover:bg-[var(--dialed-espresso-raised)]">{pending?"Einen Moment …":({login:"Anmelden",signup:"Konto erstellen",forgot:"Link anfordern",update:"Passwort speichern"})[mode]}</Button>
   </form>
 }
 function Field({id,label,error,children}:{id:string;label:string;error?:string;children:React.ReactNode}){return <div className="space-y-2"><Label htmlFor={id}>{label}</Label>{children}{error&&<p className="text-xs text-[var(--dialed-rose)]" role="alert">{error}</p>}</div>}

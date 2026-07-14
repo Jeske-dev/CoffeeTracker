@@ -13,14 +13,14 @@ export function ShotTable({ shots }: { shots: ShotSummary[] }) {
   const openShot = (id: string) => router.push(`/app/shots/${id}`);
   const prefetchShot = (id: string) => router.prefetch(`/app/shots/${id}`);
 
-  return <div className="overflow-hidden rounded-[18px] border bg-white shadow-[0_7px_18px_rgba(54,34,24,.05)]">
+  return <div className="overflow-hidden border border-black bg-white">
     <table className="w-full table-fixed border-collapse text-left text-xs">
       <colgroup>
         <col style={{ width: "30%" }} />
         {[0, 1, 2, 3, 4].map((column) => <col key={column} style={{ width: "14%" }} />)}
       </colgroup>
       <thead>
-        <tr className="border-b bg-[var(--dialed-surface-subtle)] text-[var(--dialed-text-secondary)]">
+        <tr className="border-b border-black bg-white text-black">
           <ColumnHeader icon={CalendarDays} label="Datum" />
           <ColumnHeader icon={Gauge} label="Mahlgrad" />
           <ColumnHeader icon={Timer} label="Zeit" />
@@ -46,7 +46,7 @@ export function ShotTable({ shots }: { shots: ShotSummary[] }) {
                 openShot(shot.id);
               }
             }}
-            className="group cursor-pointer border-b last:border-0 hover:bg-[var(--dialed-crema-soft)]/35 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--dialed-crema)]"
+            className="group cursor-pointer border-b last:border-0 hover:bg-[var(--crema-surface-low)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-black"
           >
             <td className="px-1.5 py-2.5">
               <div data-bean-tone={tone.key} title={shot.beans?.name ?? "Unbekannte Bohne"} className="flex min-w-0 items-center gap-1.5">
@@ -83,14 +83,12 @@ function compactUnit(value: string, unit: "g" | "s") {
 
 function beanTone(beanId: string) {
   const hash = [...beanId].reduce((value, character) => Math.imul(value ^ character.charCodeAt(0), 16_777_619) >>> 0, 2_166_136_261);
-  const hue = hash % 360;
-  const saturation = 30 + (hash >>> 9) % 12;
-  const lightness = 88 + (hash >>> 15) % 4;
+  const lightness = 82 + (hash >>> 15) % 13;
   return {
-    key: `${hue}-${saturation}-${lightness}`,
+    key: `gray-${lightness}`,
     style: {
-      backgroundColor: `hsl(${hue} ${saturation}% ${lightness}%)`,
-      color: `hsl(${hue} 30% 34%)`,
+      backgroundColor: `hsl(0 0% ${lightness}%)`,
+      color: "#000000",
     },
   };
 }

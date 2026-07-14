@@ -3,10 +3,10 @@ import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const iconToneClasses = {
-  neutral: "bg-[var(--dialed-surface-subtle)] text-[var(--dialed-crema)]",
-  crema: "bg-[var(--dialed-crema-soft)] text-[var(--dialed-crema)]",
-  sage: "bg-[var(--dialed-sage-soft)] text-[var(--dialed-sage)]",
-  rose: "bg-[var(--dialed-rose-soft)] text-[var(--dialed-rose)]",
+  neutral: "border-[var(--crema-outline-soft)] bg-white text-black",
+  crema: "border-black bg-black text-white",
+  sage: "border-black bg-[var(--crema-surface-mid)] text-black",
+  rose: "border-[var(--crema-error)] bg-[var(--crema-error-soft)] text-[var(--crema-error)]",
 } as const;
 
 export function SectionCard({
@@ -28,14 +28,14 @@ export function SectionCard({
   className?: string;
   bodyClassName?: string;
 }) {
-  return <section className={cn("rounded-[24px] border bg-white p-4 shadow-[var(--shadow-sm)]", className)}>
-    <header className="mb-3 flex min-h-10 items-center gap-3">
-      <span className={cn("grid size-10 shrink-0 place-items-center rounded-[13px]", iconToneClasses[tone])}>
-        <Icon aria-hidden="true" className="size-4.5" />
+  return <section className={cn("rounded-none border bg-white p-5", className)}>
+    <header className="mb-5 flex min-h-10 items-center gap-3 border-b border-black pb-4">
+      <span className={cn("grid size-10 shrink-0 place-items-center rounded-none border", iconToneClasses[tone])}>
+        <Icon aria-hidden="true" className="size-[18px]" />
       </span>
       <div className="min-w-0 flex-1">
-        <h2 className="text-sm font-extrabold">{title}</h2>
-        {description && <p className="mt-0.5 text-xs text-[var(--dialed-text-muted)]">{description}</p>}
+        <h2 className="font-display text-[18px] font-semibold leading-tight">{title}</h2>
+        {description && <p className="mt-1 text-xs leading-4 text-[var(--dialed-text-muted)]">{description}</p>}
       </div>
       {action}
     </header>

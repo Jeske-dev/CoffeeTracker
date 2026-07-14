@@ -18,14 +18,14 @@ export const nullableNumber = { setValueAs: (value: unknown) => isBlank(value) ?
 export const requiredNumber = { setValueAs: (value: unknown) => isBlank(value) ? undefined : Number(value) };
 
 export function NumberControl({ ariaLabel, unit, registration }: { ariaLabel: string; unit: string; registration: UseFormRegisterReturn }) {
-  return <div className="flex h-9 items-center gap-2"><input aria-label={ariaLabel} type="number" inputMode="decimal" step="0.1" className="min-w-0 flex-1 bg-transparent font-bold outline-none" {...registration} /><span className="text-[10px] text-[var(--dialed-text-muted)]">{unit}</span></div>;
+  return <div className="flex h-10 items-center gap-2"><input aria-label={ariaLabel} type="number" inputMode="decimal" step="0.1" className="min-w-0 flex-1 bg-transparent text-base font-semibold tabular outline-none" {...registration} /><span className="text-[10px] font-semibold tracking-[.08em] text-[var(--dialed-text-muted)] uppercase">{unit}</span></div>;
 }
 
 export function GrindControl({ value, registration, onStep }: { value: string | null; registration: UseFormRegisterReturn; onStep: (delta: number) => void }) {
   return <div className="grid grid-cols-[36px_1fr_36px] items-center gap-1">
-    <button type="button" aria-label="Mahlgrad verringern" title="Mahlgrad verringern" onClick={() => onStep(-0.1)} className="grid size-9 place-items-center rounded-[10px] bg-[var(--dialed-surface-subtle)]"><Minus className="size-3.5" /></button>
-    <input aria-label="Mahlgrad" value={value ?? ""} className="min-w-0 bg-transparent text-center font-bold outline-none" {...registration} />
-    <button type="button" aria-label="Mahlgrad erhöhen" title="Mahlgrad erhöhen" onClick={() => onStep(0.1)} className="grid size-9 place-items-center rounded-[10px] bg-[var(--dialed-surface-subtle)]"><Plus className="size-3.5" /></button>
+    <button type="button" aria-label="Mahlgrad verringern" title="Mahlgrad verringern" onClick={() => onStep(-0.1)} className="grid size-9 place-items-center border border-black bg-white hover:bg-black hover:text-white"><Minus className="size-3.5" /></button>
+    <input aria-label="Mahlgrad" value={value ?? ""} className="min-w-0 bg-transparent text-center text-base font-semibold tabular outline-none" {...registration} />
+    <button type="button" aria-label="Mahlgrad erhöhen" title="Mahlgrad erhöhen" onClick={() => onStep(0.1)} className="grid size-9 place-items-center border border-black bg-white hover:bg-black hover:text-white"><Plus className="size-3.5" /></button>
   </div>;
 }
 
@@ -90,7 +90,7 @@ export function PrepToolsControl({ value, onToggle }: { value: string[]; onToggl
   return <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
     {PREP_TOOLS.map((tool) => {
       const active = value.includes(tool);
-      return <button type="button" key={tool} aria-pressed={active} onClick={() => onToggle(tool)} className={`flex min-h-11 min-w-0 items-center gap-2 rounded-[11px] border px-2.5 text-left text-xs font-bold ${active ? "border-[var(--dialed-sage)]/35 bg-[var(--dialed-sage-soft)] text-[var(--dialed-sage)]" : "bg-white text-[var(--dialed-text-secondary)]"}`}>
+      return <button type="button" key={tool} aria-pressed={active} onClick={() => onToggle(tool)} className={`flex min-h-11 min-w-0 items-center gap-2 border px-2.5 text-left text-[10px] font-semibold tracking-[.06em] uppercase ${active ? "border-black bg-black text-white" : "border-[var(--crema-outline-soft)] bg-white text-[var(--dialed-text-secondary)] hover:border-black"}`}>
         {active ? <Check aria-hidden="true" className="size-3.5 shrink-0" /> : <Plus aria-hidden="true" className="size-3.5 shrink-0" />}
         <span className="min-w-0 truncate">{tool}</span>
       </button>;
@@ -99,5 +99,5 @@ export function PrepToolsControl({ value, onToggle }: { value: string[]; onToggl
 }
 
 export function SegmentedControl<T extends string>({ values, active, onSelect, columns = 3 }: { values: readonly (readonly [T, string, LucideIcon])[]; active: T | null; onSelect: (value: T) => void; columns?: number }) {
-  return <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>{values.map(([id, label, Icon]) => <button type="button" key={id} onClick={() => onSelect(id)} aria-pressed={active === id} className={`grid min-h-[72px] min-w-0 place-items-center content-center gap-1 rounded-[12px] border px-1 py-2 text-center ${active === id ? "border-[var(--dialed-sage)]/35 bg-[var(--dialed-sage-soft)]" : "bg-white"}`}><Icon className="size-4" /><span className="break-words text-[10px] leading-3">{label}</span></button>)}</div>;
+  return <div className="grid border border-black" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>{values.map(([id, label, Icon]) => <button type="button" key={id} onClick={() => onSelect(id)} aria-pressed={active === id} className={`grid min-h-[72px] min-w-0 place-items-center content-center gap-1 border-r border-black px-1 py-2 text-center last:border-r-0 ${active === id ? "bg-black text-white" : "bg-white hover:bg-[var(--crema-surface-low)]"}`}><Icon className="size-4" /><span className="break-words text-[9px] font-semibold leading-3 tracking-[.04em] uppercase">{label}</span></button>)}</div>;
 }
