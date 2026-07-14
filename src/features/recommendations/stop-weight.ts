@@ -1,4 +1,4 @@
-import { median } from "./grind-sensitivity";
+import { median } from "@/lib/statistics";
 import type { ExecutionAdjustment, RecommendationShot } from "./types";
 
 export function calculateStopWeight(shot: RecommendationShot, history: RecommendationShot[], targetYieldGrams: number | null): ExecutionAdjustment | null {

@@ -1,5 +1,4 @@
 import type { RecommendationBundleRecord, ShotSummary } from "@/types/domain";
-import type { ExecutionAdjustment, RecipeSnapshot, RecommendationCandidate } from "./types";
 
 export type NextShotTargets = {
   doseGrams: number | null;
@@ -16,14 +15,10 @@ export function resolveNextShotTargets(
   recommendation: RecommendationBundleRecord | null,
   latestShot: Pick<ShotSummary, "dose_grams" | "grind_setting" | "stop_weight_grams"> | null | undefined,
 ): NextShotTargets {
-  const recipe = recommendation?.target_recipe_snapshot as unknown as RecipeSnapshot | null;
-  const primary = recommendation?.primary_action as unknown as RecommendationCandidate | null;
-  const execution = recommendation?.execution_adjustments as unknown as ExecutionAdjustment | null;
-  const changes = primary?.changes ?? [];
-  const doseChange = changes.find((change) => change.field === "doseGrams")?.recommendedValue;
-  const grindChange = changes.find((change) => change.field === "grindSetting")?.recommendedValue;
-  const doseGrams = finiteNumber(doseChange) ?? finiteNumber(recipe?.doseGrams) ?? latestShot?.dose_grams ?? null;
-  const grindSetting = stringValue(grindChange) ?? stringValue(recipe?.grindSetting) ?? latestShot?.grind_setting ?? null;
+  const recipe = asRecord(recommendation?.target_recipe_snapshot);
+  const execution = asRecord(recommendation?.execution_adjustments);
+  const doseGrams = finiteNumber(recommendedValue(recommendation, "doseGrams")) ?? finiteNumber(recipe?.doseGrams) ?? latestShot?.dose_grams ?? null;
+  const grindSetting = stringValue(recommendedValue(recommendation, "grindSetting")) ?? stringValue(recipe?.grindSetting) ?? latestShot?.grind_setting ?? null;
   const stopWeightGrams = finiteNumber(execution?.recommendedStopWeightGrams) ?? latestShot?.stop_weight_grams ?? null;
 
   return {
@@ -44,4 +39,15 @@ function finiteNumber(value: unknown) {
 
 function stringValue(value: unknown) {
   return typeof value === "string" && value.trim() ? value : null;
+}
+
+function recommendedValue(recommendation: RecommendationBundleRecord | null, field: string) {
+  const primary = asRecord(recommendation?.primary_action);
+  if (!Array.isArray(primary?.changes)) return null;
+  const change = primary.changes.map(asRecord).find((item) => item?.field === field);
+  return change?.recommendedValue ?? null;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 }

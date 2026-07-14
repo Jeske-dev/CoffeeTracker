@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { StopWeightHistoryShot } from "@/features/shots/stop-weight-tip";
 import { createClient } from "@/lib/supabase/server";
 import { measureServerOperation } from "@/lib/performance/server-timing";
 import type { Database, ShotRow } from "@/types/database";
@@ -92,20 +93,31 @@ export async function loadSetupData(userId: string, provided?: Client) {
 export async function loadNewShotData(userId: string, provided?: Client) {
   return measureServerOperation("shots", 5, async () => {
     const supabase = await clientOr(provided);
-    const [beans, equipment, settings, latestShot, activeRecommendation] = await Promise.all([
+    const [beans, equipment, settings, recentShotsResult, activeRecommendation] = await Promise.all([
       supabase.from("beans").select(BEAN_COLUMNS).eq("user_id", userId).is("archived_at", null).order("updated_at", { ascending: false }),
       supabase.from("equipment").select(EQUIPMENT_COLUMNS).eq("user_id", userId).is("archived_at", null).order("created_at", { ascending: true }),
       supabase.from("user_settings").select(SETTINGS_COLUMNS).eq("user_id", userId).maybeSingle(),
-      supabase.from("shots").select(SHOT_COLUMNS).eq("user_id", userId).order("shot_at", { ascending: false }).limit(1).maybeSingle(),
+      supabase.from("shots").select(SHOT_COLUMNS).eq("user_id", userId).order("shot_at", { ascending: false }).limit(20),
       supabase.from("recommendation_bundles").select(RECOMMENDATION_COLUMNS).eq("user_id", userId).eq("engine_version", RECOMMENDATION_ENGINE_VERSION).in("status", ["active", "applied"]).order("created_at", { ascending: false }).limit(1).maybeSingle(),
     ]);
+    const recentShots = (recentShotsResult.data ?? []).map((shot) => toShot(shot as unknown as ShotRow));
+    const stopWeightHistory: StopWeightHistoryShot[] = recentShots.map((shot) => ({
+      id: shot.id,
+      bean_id: shot.bean_id,
+      grinder_id: shot.grinder_id,
+      grind_setting: shot.grind_setting,
+      stop_weight_grams: shot.stop_weight_grams,
+      final_yield_grams: shot.final_yield_grams,
+      shot_at: shot.shot_at,
+    }));
     return {
       beans: (beans.data ?? []) as Bean[],
       equipment: (equipment.data ?? []) as Equipment[],
       settings: settings.data as UserSettings | null,
-      latestShot: latestShot.data ? toShot(latestShot.data as unknown as ShotRow) : null,
+      latestShot: recentShots[0] ?? null,
+      stopWeightHistory,
       activeRecommendation: activeRecommendation.data as RecommendationBundleRecord | null,
-      error: beans.error ?? equipment.error ?? settings.error ?? latestShot.error ?? activeRecommendation.error,
+      error: beans.error ?? equipment.error ?? settings.error ?? recentShotsResult.error ?? activeRecommendation.error,
     };
   });
 }

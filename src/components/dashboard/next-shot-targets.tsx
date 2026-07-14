@@ -1,4 +1,5 @@
-import { Gauge, Scale, Weight, type LucideIcon } from "lucide-react";
+import { Gauge, Scale, Weight } from "lucide-react";
+import { DataMetric } from "@/components/ui/data-metric";
 import { formatWeight } from "@/lib/formatting";
 import { resolveNextShotTargets } from "@/features/recommendations/next-shot-targets";
 import type { RecommendationBundleRecord, ShotSummary } from "@/types/domain";
@@ -13,9 +14,8 @@ export function NextShotTargets({ recommendation, latestShot }: { recommendation
   </section>;
 }
 
-function TargetMetric({ icon: Icon, label, accessibleLabel = label, value, changed }: { icon: LucideIcon; label: string; accessibleLabel?: string; value: string; changed: boolean }) {
+function TargetMetric({ icon, label, accessibleLabel = label, value, changed }: { icon: typeof Scale; label: string; accessibleLabel?: string; value: string; changed: boolean }) {
   return <article aria-label={`${accessibleLabel}: ${value}`} className={`min-w-0 rounded-[16px] border px-3 py-3 ${changed ? "border-[var(--dialed-sage)]/30 bg-[var(--dialed-sage-soft)]/55" : "bg-white"}`}>
-    <span className="flex items-center gap-1.5 text-xs text-[var(--dialed-text-muted)]"><Icon aria-hidden="true" className={`size-3.5 ${changed ? "text-[var(--dialed-sage)]" : "text-[var(--dialed-crema)]"}`} />{label}</span>
-    <strong className="mt-2 block truncate text-[15px]">{value}</strong>
+    <DataMetric icon={icon} label={label} value={value} iconClassName={changed ? "text-[var(--dialed-sage)]" : "text-[var(--dialed-crema)]"} valueClassName="mt-2 text-[15px]" />
   </article>;
 }

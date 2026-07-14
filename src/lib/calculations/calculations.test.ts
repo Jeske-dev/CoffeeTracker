@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { brewRatio, isSweetSpot, loggingStreak, postStopDrip, roastAgeDays, targetScore } from ".";
-import { formatDate, formatRatio, formatTime, formatWeight } from "@/lib/formatting";
+import { formatDate, formatDateTime, formatRatio, formatTime, formatWeight } from "@/lib/formatting";
 
 describe("Espresso-Berechnungen", () => {
   it("berechnet Brew Ratio und Nachlauf", () => { expect(brewRatio(36, 19)).toBeCloseTo(1.8947); expect(postStopDrip(36.2, 34.3)).toBeCloseTo(1.9); });
@@ -13,4 +13,5 @@ describe("Espresso-Berechnungen", () => {
 describe("deutsche Formatierung", () => {
   it("formatiert Messwerte", () => { expect(formatRatio(1.894)).toBe("1 : 1,89"); expect(formatWeight(19)).toBe("19,0 g"); expect(formatTime(28.5)).toBe("28,5 s"); });
   it("formatiert Daten deutsch", () => expect(formatDate(new Date("2026-07-13T12:00:00Z"))).toMatch(/13\. Juli 2026/));
+  it("fängt ungültige historische Datumswerte ab", () => expect(formatDateTime("kein-datum")).toBe("—"));
 });

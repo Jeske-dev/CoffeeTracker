@@ -2,39 +2,37 @@
 /* React Hook Form intentionally manages mutable form state outside React Compiler memoization. */
 /* eslint-disable react-hooks/incompatible-library */
 
-import Link from "next/link";
-import { useEffect, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  CheckCircle2,
-  ChevronLeft,
-  Circle,
-  Droplets,
-  Info,
-  Settings2,
-  Sun,
-  TriangleAlert,
-  Waves,
-  X,
-} from "lucide-react";
+import { ChevronLeft, Info, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { calculateDialedScore, scoreTargetFromSnapshot, SCORING_VERSION } from "@/lib/calculations";
-import { formatRatio, formatWeight } from "@/lib/formatting";
-import { shotSchema, type ShotInput } from "@/lib/validation";
-import { removeShotDraft, readShotDraft, writeShotDraft } from "@/lib/shot-draft";
-import { PREP_TOOLS, type PrepTool } from "@/lib/prep-tools";
+import { saveShot } from "@/features/data/actions";
+import { resolveNextShotTargets } from "@/features/recommendations/next-shot-targets";
+import {
+  buildOptimisticShot,
+  calculateShotInputScore,
+  createShotDefaults,
+  getSelectableBeans,
+  groupShotEquipment,
+  prepareShotSubmission,
+  recommendationMatchesSetup,
+  stepGrindSetting,
+} from "@/features/shots/form-model";
+import { calculateStopWeightTip, type StopWeightHistoryShot } from "@/features/shots/stop-weight-tip";
+import { useShotDraft, type ShotFormStep } from "@/features/shots/use-shot-draft";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { usePrivateCache } from "@/hooks/use-private-cache";
 import { privateCacheKeys } from "@/lib/cache/keys";
-import type { ShotsPayload } from "@/lib/cache/types";
 import { runOptimisticMutation } from "@/lib/cache/optimistic-mutation";
-import { saveShot } from "@/features/data/actions";
-import { resolveNextShotTargets } from "@/features/recommendations/next-shot-targets";
-import { EquipmentIdentity } from "@/components/entities/entity-icons";
+import type { ShotsPayload } from "@/lib/cache/types";
+import { formatWeight } from "@/lib/formatting";
+import { togglePrepTool as withToggledPrepTool, type PrepTool } from "@/lib/prep-tools";
+import { removeShotDraft } from "@/lib/shot-draft";
+import { shotSchema, type ShotInput } from "@/lib/validation";
+import type { Bean, Equipment, RecommendationBundleRecord, Shot, UserSettings } from "@/types/domain";
 import {
   BeanSelectControl,
   GrindControl,
@@ -43,24 +41,11 @@ import {
   NumberControl,
   PrepToolsControl,
   requiredNumber,
-  SegmentedControl,
-  TasteMatrixControl,
 } from "./shot-form-controls";
-import { ShotExtractionSection, ShotRecipeSection, ShotReviewSection, ShotSummaryCard } from "./shot-sections";
-import { YieldFlowGraphic } from "./shot-visuals";
-import type { Bean, Equipment, RecommendationBundleRecord, Shot, ShotSummary, UserSettings } from "@/types/domain";
+import { ShotExtractionFormSection, ShotReviewFormSection, ShotSetupSummary } from "./shot-form-panels";
+import { ShotRecipeSection } from "./shot-sections";
 
-const extractionPictures = [
-  ["even", "Gleichmäßig", Circle],
-  ["minor_channeling", "Leichtes Channeling", Waves],
-  ["channeling", "Starkes Channeling", TriangleAlert],
-] as const;
-const pucks = [
-  ["ideal", "Normal", CheckCircle2],
-  ["wet", "Nass", Droplets],
-  ["dry", "Trocken", Sun],
-  ["stuck", "Festhängend", TriangleAlert],
-] as const;
+const emptyStopWeightHistory: StopWeightHistoryShot[] = [];
 
 export function ShotWizard({
   userId,
@@ -69,6 +54,7 @@ export function ShotWizard({
   settings,
   lastShot,
   recommendation = null,
+  stopWeightHistory = emptyStopWeightHistory,
 }: {
   userId: string;
   beans: Bean[];
@@ -76,106 +62,38 @@ export function ShotWizard({
   settings: UserSettings | null;
   lastShot: Shot | null;
   recommendation?: RecommendationBundleRecord | null;
+  stopWeightHistory?: StopWeightHistoryShot[];
 }) {
   const router = useRouter();
   const { mutate, invalidateShotData } = usePrivateCache();
   const isOnline = useOnlineStatus();
   const [pending, startTransition] = useTransition();
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [draftReady, setDraftReady] = useState(false);
-  const activeBeans = beans.filter((bean) => !bean.archived_at);
-  const machines = equipment.filter((item) => item.type === "machine" && !item.archived_at);
-  const grinders = equipment.filter((item) => item.type === "grinder" && !item.archived_at);
-  const baskets = equipment.filter((item) => item.type === "basket" && !item.archived_at);
-  const defaultBean = activeBeans.find((bean) => bean.id === settings?.last_bean_id)
-    ?? activeBeans.find((bean) => bean.id === lastShot?.bean_id)
-    ?? activeBeans[0];
-  const prepDefaults = (settings ? settings.default_prep_tools : lastShot?.prep_tools ?? []).filter(isPrepTool);
-  const baseDefaults: ShotInput = {
-    beanId: defaultBean?.id ?? "",
-    machineId: settings?.default_machine_id ?? lastShot?.machine_id ?? null,
-    grinderId: settings?.default_grinder_id ?? lastShot?.grinder_id ?? null,
-    basketId: lastShot?.basket_id ?? null,
-    grindSetting: lastShot?.grind_setting ?? null,
-    doseGrams: lastShot?.dose_grams ?? 18,
-    prepTools: prepDefaults,
-    extractionSeconds: null,
-    stopWeightGrams: lastShot?.stop_weight_grams ?? null,
-    finalYieldGrams: lastShot?.final_yield_grams ?? 36,
-    taste: null,
-    flow: null,
-    puck: null,
-    notes: null,
-    overallTasteRating: null,
-    targetRecipeSnapshot: null,
-    recommendationBundleId: null,
-    recommendationApplied: false,
-    recommendationChanges: [],
-    experimentMode: false,
-  };
+  const [step, setStep] = useState<ShotFormStep>(1);
+  const activeBeans = useMemo(() => getSelectableBeans(beans), [beans]);
+  const { machines, grinders } = useMemo(() => groupShotEquipment(equipment), [equipment]);
+  const defaults = useMemo(() => createShotDefaults({ beans, settings, lastShot }), [beans, lastShot, settings]);
   const { register, watch, setValue, trigger, handleSubmit, reset, formState: { errors } } = useForm<ShotInput>({
     resolver: zodResolver(shotSchema),
-    defaultValues: baseDefaults,
+    defaultValues: defaults,
   });
   const values = watch();
-  const scoreResult = calculateDialedScore({
-    doseGrams: values.doseGrams,
-    finalYieldGrams: values.finalYieldGrams,
-    extractionSeconds: values.extractionSeconds,
-    overallTasteRating: values.overallTasteRating,
-    tasteBalance: values.taste,
-    extractionPicture: values.flow,
-    targetRecipe: scoreTargetFromSnapshot(values.targetRecipeSnapshot),
-  });
+  const saveDraft = useShotDraft({ userId, defaults, step, values, reset, setStep });
   const targets = resolveNextShotTargets(recommendation, lastShot);
-  const recommendationMatchesSetup = Boolean(recommendation)
-    && recommendation?.bean_id === values.beanId
-    && recommendation?.machine_id === values.machineId
-    && recommendation?.grinder_id === values.grinderId
-    && recommendation?.basket_id === values.basketId;
-
-  useEffect(() => {
-    const draft = readShotDraft(userId);
-    if (draft) {
-      reset({
-        ...baseDefaults,
-        ...draft.values,
-        machineId: baseDefaults.machineId,
-        grinderId: baseDefaults.grinderId,
-        basketId: baseDefaults.basketId,
-        prepTools: (draft.values.prepTools ?? []).filter(isPrepTool),
-        targetRecipeSnapshot: null,
-        recommendationBundleId: null,
-        recommendationApplied: false,
-        recommendationChanges: [],
-        experimentMode: false,
-      });
-      setStep(draft.step);
-      toast.info("Shot-Entwurf fortgesetzt", { id: "shot-draft-restored" });
-    }
-    setDraftReady(true);
-  // The initial defaults are intentionally captured once for restoring the local draft.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reset, userId]);
-
-  useEffect(() => {
-    if (!draftReady) return;
-    const timer = window.setTimeout(() => writeShotDraft(userId, step, values), 350);
-    return () => window.clearTimeout(timer);
-  }, [draftReady, step, userId, values]);
-
-  useEffect(() => {
-    if (!draftReady) return;
-    const preserve = () => writeShotDraft(userId, step, values);
-    window.addEventListener("pagehide", preserve);
-    return () => window.removeEventListener("pagehide", preserve);
-  }, [draftReady, step, userId, values]);
+  const matchesRecommendationSetup = recommendationMatchesSetup(recommendation, values);
+  const stopWeightTip = useMemo(() => calculateStopWeightTip({
+    beanId: values.beanId || null,
+    grinderId: values.grinderId,
+    grindSetting: values.grindSetting,
+    targetFinalWeightGrams: values.finalYieldGrams,
+    history: stopWeightHistory,
+  }), [stopWeightHistory, values.beanId, values.finalYieldGrams, values.grindSetting, values.grinderId]);
 
   const close = () => {
-    writeShotDraft(userId, step, values);
+    saveDraft();
     toast.success("Shot als Entwurf gespeichert", { description: "Du kannst ihn unter Shots weiter bearbeiten." });
     router.push("/app/shots");
   };
+
   const next = async () => {
     if (step === 1) {
       if (await trigger(["beanId", "doseGrams"])) setStep(2);
@@ -183,52 +101,34 @@ export function ShotWizard({
     }
     if (await trigger(["extractionSeconds", "stopWeightGrams", "finalYieldGrams"])) setStep(3);
   };
+
   const togglePrepTool = (tool: PrepTool) => {
-    const current = values.prepTools ?? [];
-    setValue("prepTools", current.includes(tool) ? current.filter((item) => item !== tool) : [...current, tool], { shouldDirty: true });
+    setValue("prepTools", withToggledPrepTool(values.prepTools ?? [], tool), { shouldDirty: true });
   };
 
   const submit = (data: ShotInput) => {
     if (!isOnline) {
-      writeShotDraft(userId, step, data);
+      saveDraft(data);
       toast.error("Offline gespeichert", { description: "Der Entwurf bleibt auf diesem Gerät. Speichere den Shot, sobald du wieder online bist." });
       return;
     }
-    const trackedFields = (["doseGrams", "grindSetting", "stopWeightGrams"] as const)
-      .filter((field) => JSON.stringify(data[field]) !== JSON.stringify(baseDefaults[field]))
-      .map((field) => ({ field, previousValue: baseDefaults[field], recommendedValue: data[field], actualValue: data[field], manual: true }));
-    const submittedData: ShotInput = {
-      ...data,
-      targetRecipeSnapshot: null,
-      recommendationBundleId: null,
-      recommendationApplied: false,
-      recommendationChanges: trackedFields,
-      experimentMode: false,
-    };
+
+    const submittedData = prepareShotSubmission(data, defaults);
+    const scoreResult = calculateShotInputScore(submittedData);
     startTransition(async () => {
       const key = privateCacheKeys.shots(userId);
       const optimisticId = `optimistic-${Date.now()}`;
+      const shotAt = new Date().toISOString();
       const bean = activeBeans.find((item) => item.id === submittedData.beanId) ?? null;
-      const optimisticShot: ShotSummary = {
+      const optimisticShot = buildOptimisticShot({
         id: optimisticId,
-        bean_id: submittedData.beanId,
-        machine_id: submittedData.machineId,
-        grinder_id: submittedData.grinderId,
-        basket_id: submittedData.basketId,
-        shot_at: new Date().toISOString(),
-        grind_setting: submittedData.grindSetting,
-        dose_grams: submittedData.doseGrams,
-        extraction_seconds: submittedData.extractionSeconds,
-        stop_weight_grams: submittedData.stopWeightGrams,
-        final_yield_grams: submittedData.finalYieldGrams,
-        taste: submittedData.taste,
-        flow: submittedData.flow,
+        shotAt,
+        input: submittedData,
+        bean,
         score: scoreResult.score,
-        score_coverage: scoreResult.coverage,
-        target_recipe_snapshot: null,
-        scoring_version: SCORING_VERSION,
-        beans: bean ? { id: bean.id, name: bean.name, roaster: bean.roaster, roast_date: bean.roast_date, origin: bean.origin } : null,
-      };
+        coverage: scoreResult.coverage,
+      });
+
       try {
         const result = await runOptimisticMutation<ShotsPayload, Awaited<ReturnType<typeof saveShot>>>({
           mutate: (current, options) => mutate<ShotsPayload>(key, current, options),
@@ -258,20 +158,14 @@ export function ShotWizard({
     });
   };
 
-  const ratioValue = values.doseGrams && values.finalYieldGrams ? values.finalYieldGrams / values.doseGrams : null;
   const selectedMachine = machines.find((item) => item.id === values.machineId) ?? null;
   const selectedGrinder = grinders.find((item) => item.id === values.grinderId) ?? null;
-  const selectedBasket = baskets.find((item) => item.id === values.basketId) ?? null;
-  const doseHint = recommendationMatchesSetup && targets.changed.dose && targets.doseGrams !== values.doseGrams
+  const doseHint = matchesRecommendationSetup && targets.changed.dose && targets.doseGrams !== values.doseGrams
     ? <TargetHint value={formatWeight(targets.doseGrams)} />
     : undefined;
-  const grindHint = recommendationMatchesSetup && targets.changed.grind && targets.grindSetting !== values.grindSetting
-    ? <TargetHint value={targets.grindSetting ?? "—"} />
+  const grindHint = matchesRecommendationSetup && targets.changed.grind && targets.grindSetting !== values.grindSetting
+    ? <TargetHint value={targets.grindSetting ?? "–"} />
     : undefined;
-  const stopHint = recommendationMatchesSetup && targets.changed.stop && targets.stopWeightGrams !== values.stopWeightGrams
-    ? <TargetHint value={formatWeight(targets.stopWeightGrams)} />
-    : undefined;
-
   return <div className="fixed inset-0 z-50 grid bg-[var(--dialed-surface)] min-[561px]:absolute">
     <header className="border-b bg-[rgba(251,248,243,.95)] px-[18px] pt-[calc(16px+env(safe-area-inset-top))] pb-3 backdrop-blur">
       <div className="grid grid-cols-[44px_1fr_44px] items-center">
@@ -289,59 +183,49 @@ export function ShotWizard({
       <div className="scrollbar-none min-h-0 overflow-y-auto px-[18px] py-[19px] pb-6"><div className="mx-auto max-w-[680px]">
         {step === 1 && <>
           <PageTitle>Rezept</PageTitle>
-          <ShotRecipeSection
-            mode="create"
-            fields={{
-              bean: { value: <><BeanSelectControl label="Bohne wählen" options={activeBeans} value={values.beanId} onValueChange={(value) => setValue("beanId", value, { shouldDirty: true, shouldValidate: true })} /><FieldError text={errors.beanId?.message} /></> },
-              grind: { value: <GrindControl value={values.grindSetting} registration={register("grindSetting", nullableString)} onStep={(delta) => setValue("grindSetting", ((Number(values.grindSetting) || 0) + delta).toFixed(1), { shouldDirty: true })} />, hint: grindHint },
-              dose: { value: <NumberControl ariaLabel="Dosis" unit="g" registration={register("doseGrams", requiredNumber)} />, hint: doseHint },
-              prepTools: { value: <PrepToolsControl value={values.prepTools ?? []} onToggle={togglePrepTool} /> },
-            }}
-          />
-          <FieldError text={errors.doseGrams?.message} />
-          <ShotSummaryCard title="Setup" icon={Settings2}>
-            <div className="grid gap-2 sm:grid-cols-3">
-              <SetupItem label="Maschine"><EquipmentIdentity equipment={selectedMachine} type="machine" fallback="Nicht festgelegt" /></SetupItem>
-              <SetupItem label="Mühle"><EquipmentIdentity equipment={selectedGrinder} type="grinder" fallback="Nicht festgelegt" /></SetupItem>
-              <SetupItem label="Sieb"><EquipmentIdentity equipment={selectedBasket} type="basket" fallback="Nicht festgelegt" /></SetupItem>
-            </div>
-            <p className="mt-3 flex items-start gap-2 border-t pt-3 text-xs leading-5 text-[var(--dialed-text-muted)]"><Info aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" /><span>Dieses Setup gilt für den Shot. <Link href="/app/setup" className="font-bold text-[var(--dialed-sage)]">In den Einstellungen ändern</Link></span></p>
-          </ShotSummaryCard>
+          <ShotRecipeSection fields={{
+            bean: { value: <BeanSelectControl label="Bohne wählen" options={activeBeans} value={values.beanId} onValueChange={(value) => setValue("beanId", value, { shouldDirty: true, shouldValidate: true })} /> },
+            grind: { value: <GrindControl value={values.grindSetting} registration={register("grindSetting", nullableString)} onStep={(delta) => setValue("grindSetting", stepGrindSetting(values.grindSetting, delta), { shouldDirty: true })} />, hint: grindHint },
+            dose: { value: <NumberControl ariaLabel="Dosis" unit="g" registration={register("doseGrams", requiredNumber)} />, hint: doseHint },
+            prepTools: { value: <PrepToolsControl value={values.prepTools ?? []} onToggle={togglePrepTool} /> },
+          }} />
+          <FormError text={errors.beanId?.message ?? errors.doseGrams?.message} />
+          <ShotSetupSummary machine={selectedMachine} grinder={selectedGrinder} />
         </>}
         {step === 2 && <>
           <PageTitle>Extraktion</PageTitle>
-          <ShotExtractionSection
-            mode="create"
-            summary={<div className="mb-3">
-              <YieldFlowGraphic stopWeight={values.stopWeightGrams} finalWeight={values.finalYieldGrams} />
-              <div className="mt-2 flex min-h-10 items-center justify-between gap-3 rounded-[12px] bg-[var(--dialed-surface-subtle)] px-3 text-xs"><span className="text-[var(--dialed-text-muted)]">Brew Ratio</span><strong>{formatRatio(ratioValue)}</strong></div>
-            </div>}
-            fields={{
-              time: { value: <NumberControl ariaLabel="Extraktionszeit" unit="s" registration={register("extractionSeconds", nullableNumber)} /> },
-              stopWeight: { value: <NumberControl ariaLabel="Stop-Gewicht" unit="g" registration={register("stopWeightGrams", nullableNumber)} />, hint: stopHint },
-              finalYield: { value: <NumberControl ariaLabel="Finales Getränkgewicht" unit="g" registration={register("finalYieldGrams", requiredNumber)} /> },
-            }}
+          <ShotExtractionFormSection
+            stopWeightGrams={values.stopWeightGrams}
+            finalYieldGrams={values.finalYieldGrams}
+            timeRegistration={register("extractionSeconds", nullableNumber)}
+            stopRegistration={register("stopWeightGrams", nullableNumber)}
+            finalYieldRegistration={register("finalYieldGrams", requiredNumber)}
+            stopTip={stopWeightTip}
           />
-          <FieldError text={errors.extractionSeconds?.message ?? errors.finalYieldGrams?.message ?? errors.stopWeightGrams?.message} />
+          <FormError text={errors.extractionSeconds?.message ?? errors.stopWeightGrams?.message ?? errors.finalYieldGrams?.message} />
         </>}
         {step === 3 && <>
           <PageTitle>Bewertung</PageTitle>
-          <ShotReviewSection
-            mode="create"
-            fields={{
-              taste: { value: <TasteMatrixControl taste={values.taste} rating={values.overallTasteRating} onSelect={(taste, rating) => { setValue("taste", taste, { shouldDirty: true }); setValue("overallTasteRating", rating, { shouldDirty: true }); }} /> },
-              extractionPicture: { value: <SegmentedControl values={extractionPictures} active={values.flow} onSelect={(value) => setValue("flow", values.flow === value ? null : value, { shouldDirty: true })} /> },
-              puck: { value: <SegmentedControl values={pucks} active={values.puck} onSelect={(value) => setValue("puck", values.puck === value ? null : value, { shouldDirty: true })} columns={4} /> },
-              notes: { value: <Textarea aria-label="Notiz" className="min-h-24 border-0 bg-transparent p-0 text-xs shadow-none focus-visible:ring-0" placeholder="Optional" {...register("notes")} /> },
+          <ShotReviewFormSection
+            taste={values.taste}
+            rating={values.overallTasteRating}
+            flow={values.flow}
+            puck={values.puck}
+            notesRegistration={register("notes")}
+            onTasteChange={(taste, rating) => {
+              setValue("taste", taste, { shouldDirty: true });
+              setValue("overallTasteRating", rating, { shouldDirty: true });
             }}
+            onFlowChange={(flow) => setValue("flow", flow, { shouldDirty: true })}
+            onPuckChange={(puck) => setValue("puck", puck, { shouldDirty: true })}
           />
         </>}
       </div></div>
       <footer className="flex gap-2.5 border-t bg-[rgba(251,248,243,.94)] px-[18px] pt-3 pb-[calc(14px+env(safe-area-inset-bottom))] backdrop-blur">
-        <Button type="button" variant="secondary" onClick={() => setStep((current) => Math.max(1, current - 1) as 1 | 2 | 3)} className={`h-12 flex-1 rounded-full ${step === 1 ? "invisible" : ""}`}><ChevronLeft />Zurück</Button>
+        <Button type="button" variant="secondary" onClick={() => setStep((current) => Math.max(1, current - 1) as ShotFormStep)} className={`h-12 flex-1 rounded-full ${step === 1 ? "invisible" : ""}`}><ChevronLeft />Zurück</Button>
         {step < 3
           ? <Button key={`next-${step}`} type="button" onClick={(event) => { event.preventDefault(); void next(); }} className="h-12 flex-1 rounded-full bg-[var(--dialed-crema)] text-[var(--dialed-text)]">Weiter</Button>
-          : <Button type="submit" disabled={pending || !isOnline} className="h-12 flex-1 rounded-full bg-[var(--dialed-crema)] text-[var(--dialed-text)]">{pending ? "Speichert …" : isOnline ? "Shot speichern" : "Offline – Entwurf bleibt erhalten"}</Button>}
+          : <Button type="submit" disabled={pending || !isOnline} className="h-12 flex-1 rounded-full bg-[var(--dialed-crema)] text-[var(--dialed-text)]">{pending ? "Speichert ..." : isOnline ? "Shot speichern" : "Offline – Entwurf bleibt erhalten"}</Button>}
       </footer>
     </form>
   </div>;
@@ -351,18 +235,10 @@ function PageTitle({ children }: { children: string }) {
   return <h2 className="mb-4 font-display text-[25px] font-medium">{children}</h2>;
 }
 
-function FieldError({ text }: { text?: string }) {
+function FormError({ text }: { text?: string }) {
   return text ? <p role="alert" className="mt-2 text-xs text-[var(--dialed-rose)]">{text}</p> : null;
 }
 
 function TargetHint({ value }: { value: string }) {
   return <p aria-label={`Zielwert aus deinen letzten Shots: ${value}`} className="mt-1.5 flex items-center gap-1.5 px-1 text-xs leading-4 text-[var(--dialed-sage)]"><Info aria-hidden="true" className="size-3.5 shrink-0" /><span>Ziel: <strong>{value}</strong></span></p>;
-}
-
-function SetupItem({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div className="min-w-0 rounded-[12px] bg-[var(--dialed-surface-subtle)] p-3"><span className="mb-2 block text-xs text-[var(--dialed-text-muted)]">{label}</span><div className="min-w-0 text-xs">{children}</div></div>;
-}
-
-function isPrepTool(tool: string): tool is PrepTool {
-  return PREP_TOOLS.some((candidate) => candidate === tool);
 }

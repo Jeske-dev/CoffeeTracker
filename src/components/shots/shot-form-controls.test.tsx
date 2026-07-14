@@ -1,7 +1,7 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { BeanSelectControl, SelectControl } from "./shot-form-controls";
+import { BeanSelectControl, nullableNumber, nullableString, requiredNumber, SelectControl } from "./shot-form-controls";
 import type { Bean, Equipment } from "@/types/domain";
 
 const bean = (id: string, name: string, origin: string | null): Bean => ({
@@ -36,6 +36,14 @@ const equipment = (id: string, type: Equipment["type"], name: string): Equipment
 
 describe("visuelle Shot-Auswahl", () => {
   afterEach(() => cleanup());
+
+  it("behält leere Browserwerte als null beziehungsweise undefined", () => {
+    expect(nullableNumber.setValueAs(null)).toBeNull();
+    expect(nullableNumber.setValueAs("")).toBeNull();
+    expect(nullableString.setValueAs(undefined)).toBeNull();
+    expect(requiredNumber.setValueAs(null)).toBeUndefined();
+    expect(nullableNumber.setValueAs("28.5")).toBe(28.5);
+  });
 
   it("zeigt die Länderflagge im gewählten Wert und in den Bohnenoptionen", async () => {
     const user = userEvent.setup();

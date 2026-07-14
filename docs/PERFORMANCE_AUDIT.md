@@ -2,6 +2,8 @@
 
 Audit date: 2026-07-13
 
+> Dieses Dokument hält Baseline und ursprüngliche Messung fest. Der aktuelle Architekturvertrag steht in [ARCHITECTURE.md](ARCHITECTURE.md); der Prüfablauf in [QUALITY.md](QUALITY.md).
+
 ## Baseline
 
 The audit was performed against commit `7d1770c` before performance changes.
@@ -83,8 +85,10 @@ Shot creation and deletion update an already loaded timeline optimistically and 
 - The persistent bottom navigation uses `next/link`, explicitly prefetched links, and `router.prefetch()` warm-up for Dashboard, Shots, Beans, and Setup. Setup contains the app's settings, so no separate settings route exists.
 - `experimental.staleTimes.dynamic` and `staleTimes.static` are both 30 seconds, so explicitly prefetched dashboard data cannot remain in the Next.js router cache beyond the dashboard freshness window.
 - Loading boundaries now cover setup, new/detail/edit shots, and new/detail beans with route-shaped skeletons.
-- The dashboard streams its shell and uses separate Suspense boundaries for header, quick start/recommendation, chart, statistics, analytics, and recent shots.
+- The dashboard starts one aggregate request early and uses one meaningful Suspense boundary. Its sections depend on that same promise, so additional boundaries would not produce independent streaming.
 - Vercel Speed Insights is mounted in the root layout.
+
+The 2026-07-14 refactor also derives both chart view models on the server. The dashboard sends at most ten grind/time points to Recharts. Shot detail sends at most eleven comparison points instead of serializing up to twenty complete shots into the client bundle. Date and number formatters are reused rather than constructed during each render.
 
 ## Database changes
 
@@ -113,7 +117,9 @@ Authenticated p50/p95 latency cannot be measured locally because no test-user cr
 
 - TypeScript: passed
 - ESLint: passed with no warnings
-- Vitest: 17 files, 83 tests passed
+- Vitest: 27 files, 127 tests passed
+- Next.js production build: passed
+- Temporary responsive Playwright harness: mobile and desktop passed; harness removed after verification
 - Supabase linked migration dry-run: passed; only `20260713050000_performance_indexes.sql` would be applied
 - Tests cover prefetch/navigation links, route loading states, parallel query startup, SWR deduplication and server fallback, user-key isolation, optimistic rollback, logout clearing/user switch, private response headers, and RLS migration guarantees.
 

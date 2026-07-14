@@ -44,9 +44,11 @@ describe("Shot-Historie", () => {
     expect(screen.getByLabelText("Flagge Äthiopien")).toBeInTheDocument();
     expect(screen.getByText("Mahlgrad")).toBeInTheDocument();
     expect(screen.getByText("2.4")).toBeInTheDocument();
+    expect(screen.getByText("Zeit")).toBeInTheDocument();
+    expect(screen.queryByText("Extraktionszeit")).not.toBeInTheDocument();
     expect(screen.getByText("28,0 s")).toBeInTheDocument();
-    expect(screen.getByText("34,0 / 36,0 g")).toBeInTheDocument();
-    expect(screen.getByLabelText("Brew Ratio 1 : 1,89")).toBeInTheDocument();
+    expect(screen.getByText("34 / 36 g")).toBeInTheDocument();
+    expect(screen.queryByText("Ratio")).not.toBeInTheDocument();
     expect(screen.queryByText("90")).not.toBeInTheDocument();
   });
 
@@ -56,11 +58,16 @@ describe("Shot-Historie", () => {
     fireEvent.click(screen.getByRole("button", { name: "Tabellenansicht" }));
 
     const table = screen.getByRole("table");
-    expect(within(table).getByRole("columnheader", { name: "Bohne" })).toBeInTheDocument();
-    expect(within(table).getByRole("columnheader", { name: "Stop" })).toBeInTheDocument();
-    expect(within(table).getByRole("columnheader", { name: "Final" })).toBeInTheDocument();
-    expect(within(table).getAllByText("34,0 g")).toHaveLength(2);
-    expect(within(table).getByText("38,0 g")).toBeInTheDocument();
+    expect(within(table).getByRole("columnheader", { name: "Datum" })).toBeInTheDocument();
+    expect(within(table).getByRole("columnheader", { name: "Stop-Gewicht" })).toBeInTheDocument();
+    expect(within(table).getByRole("columnheader", { name: "Finales Gewicht" })).toBeInTheDocument();
+    expect(within(table).queryByRole("columnheader", { name: "Ratio" })).not.toBeInTheDocument();
+    expect(within(table).getAllByText("34,0")).toHaveLength(2);
+    expect(within(table).getByText("38,0")).toBeInTheDocument();
+    expect(within(table).queryByText("balanced bean")).not.toBeInTheDocument();
+    expect(within(table).queryByText("sour bean")).not.toBeInTheDocument();
+    const beanTones = [...table.querySelectorAll<HTMLElement>("[data-bean-tone]")].map((icon) => icon.dataset.beanTone);
+    expect(new Set(beanTones).size).toBe(2);
 
     const row = screen.getByRole("link", { name: /balanced bean/ });
     fireEvent.keyDown(row, { key: "Enter" });
@@ -78,7 +85,9 @@ describe("Shot-Historie", () => {
     expect(screen.queryByRole("link", { name: /balanced bean/ })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Tabellenansicht" }));
-    expect(within(screen.getByRole("table")).getByText("sour bean")).toBeInTheDocument();
-    expect(within(screen.getByRole("table")).queryByText("balanced bean")).not.toBeInTheDocument();
+    const table = screen.getByRole("table");
+    expect(within(table).getByRole("link", { name: /sour bean/ })).toBeInTheDocument();
+    expect(within(table).queryByRole("link", { name: /balanced bean/ })).not.toBeInTheDocument();
+    expect(within(table).queryByText("sour bean")).not.toBeInTheDocument();
   });
 });

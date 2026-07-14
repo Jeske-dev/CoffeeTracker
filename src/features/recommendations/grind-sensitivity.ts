@@ -1,18 +1,12 @@
 import { roundTo } from "./signals";
 import type { GrinderConfig, RecommendationShot } from "./types";
+import { median } from "@/lib/statistics";
 
 export function normalizedFineness(setting: string | null, grinder?: GrinderConfig | null) {
   if (setting === null || !grinder?.finerDirection) return null;
   const numeric = Number(setting.replace(",", "."));
   if (!Number.isFinite(numeric)) return null;
   return grinder.finerDirection === "higher" ? numeric : -numeric;
-}
-
-export function median(values: number[]) {
-  if (!values.length) return null;
-  const sorted = [...values].sort((a, b) => a - b);
-  const middle = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
 export function learnGrindSensitivity(shots: RecommendationShot[], grinder?: GrinderConfig | null) {

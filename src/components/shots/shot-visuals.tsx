@@ -1,7 +1,9 @@
-import { CircleHelp, CircleMinus, CirclePlus, Citrus, Coffee, Minus, Plus, Scale } from "lucide-react";
+import type { ReactNode } from "react";
+import { CircleHelp, CircleStop, Citrus, Coffee, Minus, Plus, Scale } from "lucide-react";
+import { DataMetric } from "@/components/ui/data-metric";
 import { postStopDrip } from "@/lib/calculations";
-import { formatRatio, formatWeight } from "@/lib/formatting";
-import { tasteLevelFromShot, type TasteLevel } from "@/lib/taste-scale";
+import { formatWeight } from "@/lib/formatting";
+import { TASTE_LEVELS, TASTE_LEVEL_VALUES, tasteLevelFromShot, type TasteLevel } from "@/lib/taste-scale";
 import { cn } from "@/lib/utils";
 import type { ShotTaste } from "@/types/domain";
 
@@ -29,92 +31,76 @@ const tasteBadgeOptions = [
   },
 ] as const;
 
-export function TasteBadge({ taste, className }: { taste: ShotTaste | null; className?: string }) {
+export function TasteBadge({ taste, className, iconOnly = false }: { taste: ShotTaste | null; className?: string; iconOnly?: boolean }) {
   const option = tasteBadgeOptions.find((item) => item.value === taste);
   const Icon = option?.icon ?? CircleHelp;
+  const label = option?.label ?? "Offen";
 
   return <span className={cn(
-    "inline-flex min-h-7 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-bold",
+    "inline-flex min-h-7 shrink-0 items-center gap-1.5 text-xs font-bold",
+    iconOnly ? "size-7 justify-center rounded-[9px] p-0" : "rounded-full px-2.5",
     option?.badge ?? "bg-[var(--dialed-surface-subtle)] text-[var(--dialed-text-muted)]",
     className,
-  )}>
+  )} aria-label={iconOnly ? `Geschmack: ${label}` : undefined} title={iconOnly ? label : undefined}>
     <Icon aria-hidden="true" className="size-3.5" />
-    {option?.label ?? "Offen"}
+    {!iconOnly && label}
   </span>;
 }
 
-const tasteScaleOptions: Array<{
-  value: TasteLevel;
-  label: string;
-  icon: typeof Scale;
-  active: string;
-}> = [
-  { value: "too_sour", label: "Zu sauer", icon: CircleMinus, active: "border-[var(--dialed-gold)]/35 bg-[var(--dialed-gold)]/14 text-[#765B1B]" },
-  { value: "slightly_sour", label: "Leicht sauer", icon: Minus, active: "border-[var(--dialed-gold)]/35 bg-[var(--dialed-gold)]/10 text-[#765B1B]" },
-  { value: "balanced", label: "Ausgewogen", icon: Scale, active: "border-[var(--dialed-sage)]/35 bg-[var(--dialed-sage-soft)] text-[var(--dialed-sage)]" },
-  { value: "slightly_bitter", label: "Leicht bitter", icon: Plus, active: "border-[var(--dialed-rose)]/25 bg-[var(--dialed-rose-soft)]/60 text-[var(--dialed-rose)]" },
-  { value: "too_bitter", label: "Zu bitter", icon: CirclePlus, active: "border-[var(--dialed-rose)]/30 bg-[var(--dialed-rose-soft)] text-[var(--dialed-rose)]" },
-];
+const tasteScalePresentation: Record<TasteLevel, { icon: typeof Scale; active: string }> = {
+  too_sour: { icon: Citrus, active: "border-[var(--dialed-gold)]/35 bg-[var(--dialed-gold)]/14 text-[#765B1B]" },
+  slightly_sour: { icon: Minus, active: "border-[var(--dialed-gold)]/35 bg-[var(--dialed-gold)]/10 text-[#765B1B]" },
+  balanced: { icon: Scale, active: "border-[var(--dialed-sage)]/35 bg-[var(--dialed-sage-soft)] text-[var(--dialed-sage)]" },
+  slightly_bitter: { icon: Plus, active: "border-[var(--dialed-rose)]/25 bg-[var(--dialed-rose-soft)]/60 text-[var(--dialed-rose)]" },
+  too_bitter: { icon: Coffee, active: "border-[var(--dialed-rose)]/30 bg-[var(--dialed-rose-soft)] text-[var(--dialed-rose)]" },
+};
 
-export function TasteScale({ taste, rating }: { taste: ShotTaste | null; rating: number | null }) {
+export function TasteScale({
+  taste,
+  rating,
+  onChange,
+}: {
+  taste: ShotTaste | null;
+  rating: number | null;
+  onChange?: (taste: ShotTaste | null, rating: number | null) => void;
+}) {
   const activeTaste = tasteLevelFromShot(taste, rating);
-  const activeLabel = tasteScaleOptions.find((item) => item.value === activeTaste)?.label;
+  const activeLabel = activeTaste ? TASTE_LEVEL_VALUES[activeTaste].label : null;
   return <div>
     <div className="grid grid-cols-5 gap-1" aria-label={`Geschmack: ${activeLabel ?? "nicht angegeben"}`}>
-      {tasteScaleOptions.map((option) => {
-        const Icon = option.icon;
-        const active = option.value === activeTaste;
-        return <div
-          key={option.value}
-          aria-current={active ? "true" : undefined}
-          className={cn(
-            "grid min-h-[72px] min-w-0 place-items-center content-center gap-1 rounded-[12px] border px-0.5 py-2 text-center font-bold",
-            active ? option.active : "border-transparent bg-[var(--dialed-surface-subtle)] text-[var(--dialed-text-muted)]",
-          )}
-        >
-          <Icon aria-hidden="true" className="size-4" />
-          <span className={`max-w-full break-words leading-3 min-[400px]:text-[10px] ${option.value === "balanced" ? "text-[8px]" : "text-[9px]"}`}>{option.label}</span>
-        </div>;
-      })}
+      {TASTE_LEVELS.map((level) => <TasteOption key={level} level={level} selected={level === activeTaste} onSelect={onChange} />)}
     </div>
-    {!activeTaste && <p className="mt-2 text-xs text-[var(--dialed-text-muted)]">Noch nicht eingeordnet</p>}
+    <div aria-hidden="true" className="mt-2 flex items-center justify-between gap-3 text-[10px] font-bold">
+      <span className="text-[#765B1B]">Zu sauer</span>
+      <span className="text-[var(--dialed-rose)]">Zu bitter</span>
+    </div>
   </div>;
 }
 
-export function RatioVisual({ ratio, compact = false }: { ratio: number | null; compact?: boolean }) {
-  const outputWidth = ratio === null ? 0 : Math.min(100, Math.max(0, ratio / 3 * 100));
-  const inputWidth = 100 / 3;
+function TasteOption({ level, selected, onSelect }: { level: TasteLevel; selected: boolean; onSelect?: (taste: ShotTaste | null, rating: number | null) => void }) {
+  const { label, taste, rating } = TASTE_LEVEL_VALUES[level];
+  const { icon: Icon, active } = tasteScalePresentation[level];
+  const className = cn(
+    "grid min-h-14 min-w-0 place-items-center rounded-[10px] border p-2",
+    selected ? active : "border-transparent bg-[var(--dialed-surface-subtle)] text-[var(--dialed-text-muted)]",
+  );
+  const content = <Icon aria-hidden="true" className="size-[18px]" />;
 
-  return <div className={cn("min-w-0", compact ? "w-full" : "rounded-[14px] bg-[var(--dialed-surface-subtle)] p-3")} aria-label={`Brew Ratio ${formatRatio(ratio)}`}>
-    <div className="flex items-end justify-between gap-2">
-      {!compact && <span className="text-xs font-medium text-[var(--dialed-text-muted)]">Brew Ratio</span>}
-      <strong className={cn("whitespace-nowrap", compact ? "text-[13px]" : "font-display text-2xl font-medium")}>{formatRatio(ratio)}</strong>
-    </div>
-    <div className={cn("grid gap-1", compact ? "mt-1.5" : "mt-3")} aria-hidden="true">
-      <span className="block h-1 rounded-full bg-[var(--dialed-surface-strong)]" style={{ width: `${inputWidth}%` }} />
-      <span className="block h-1 rounded-full bg-[var(--dialed-crema)]" style={{ width: `${outputWidth}%` }} />
-    </div>
-  </div>;
+  if (onSelect) {
+    return <button type="button" aria-label={label} title={label} aria-pressed={selected} onClick={() => onSelect(selected ? null : taste, selected ? null : rating)} className={className}>{content}</button>;
+  }
+  return <div title={label} aria-current={selected ? "true" : undefined} className={className}>{content}</div>;
 }
 
 export function YieldFlowGraphic({ stopWeight, finalWeight }: { stopWeight: number | null; finalWeight: number | null }) {
   const overshoot = postStopDrip(finalWeight, stopWeight);
-  const maxWeight = Math.max(stopWeight ?? 0, finalWeight ?? 0, 1);
-  const stopWidth = Math.min(100, Math.max(0, (stopWeight ?? 0) / maxWeight * 100));
-  const finalWidth = Math.min(100, Math.max(0, (finalWeight ?? 0) / maxWeight * 100));
-  const firstWidth = finalWeight === null ? stopWidth : Math.min(stopWidth, finalWidth);
-  const afterStopWidth = Math.max(0, finalWidth - stopWidth);
 
   return <div className="rounded-[14px] bg-[var(--dialed-surface-subtle)] p-3.5" aria-label={`Gewichtsverlauf: Stop ${formatWeight(stopWeight)}, final ${formatWeight(finalWeight)}, Nachlauf ${formatWeight(overshoot)}`}>
     <div className="flex items-center justify-between gap-3">
       <strong className="text-sm">Gewichtsverlauf</strong>
       <span className="text-xs text-[var(--dialed-text-muted)]">Stop bis Tasse</span>
     </div>
-    <div className="relative mt-4 h-3 overflow-hidden rounded-full bg-black/[.06]" aria-hidden="true">
-      <span className="absolute inset-y-0 left-0 bg-[var(--dialed-espresso)]" style={{ width: `${firstWidth}%` }} />
-      <span className="absolute inset-y-0 bg-[var(--dialed-crema)]" style={{ left: `${stopWidth}%`, width: `${afterStopWidth}%` }} />
-      {stopWeight !== null && <span className="absolute inset-y-[-3px] w-0.5 bg-white shadow-[0_0_0_1px_rgba(43,27,22,.2)]" style={{ left: `calc(${stopWidth}% - 1px)` }} />}
-    </div>
+    <YieldBar stopWeight={stopWeight} finalWeight={finalWeight} />
     <div className="mt-3 grid grid-cols-3 gap-2">
       <WeightValue label="Stop" value={formatWeight(stopWeight)} />
       <WeightValue label="Final" value={formatWeight(finalWeight)} />
@@ -123,9 +109,57 @@ export function YieldFlowGraphic({ stopWeight, finalWeight }: { stopWeight: numb
   </div>;
 }
 
-function WeightValue({ label, value, highlighted = false }: { label: string; value: string; highlighted?: boolean }) {
-  return <div className="min-w-0">
-    <span className="block text-xs text-[var(--dialed-text-muted)]">{label}</span>
-    <strong className={cn("mt-1 block truncate text-sm", highlighted && "text-[var(--dialed-crema)]")}>{value}</strong>
+export function YieldInputGraphic({
+  stopWeight,
+  finalWeight,
+  stopControl,
+  finalControl,
+}: {
+  stopWeight: number | null;
+  finalWeight: number | null;
+  stopControl: ReactNode;
+  finalControl: ReactNode;
+}) {
+  const overshoot = postStopDrip(finalWeight, stopWeight);
+
+  return <div aria-label={`Gewichtsverlauf: Stop ${formatWeight(stopWeight)}, final ${formatWeight(finalWeight)}, Nachlauf ${formatWeight(overshoot)}`}>
+    <div className="flex items-center justify-between gap-3">
+      <strong className="text-sm">Gewichtsverlauf</strong>
+      <span className="text-xs text-[var(--dialed-text-muted)]">Stop bis Tasse</span>
+    </div>
+    <YieldBar stopWeight={stopWeight} finalWeight={finalWeight} />
+    <div className="mt-3 grid grid-cols-2 gap-2">
+      <WeightControl label="Stop-Gewicht" icon={<CircleStop aria-hidden="true" className="size-3.5" />} control={stopControl} />
+      <WeightControl label="Finales Gewicht" icon={<Coffee aria-hidden="true" className="size-3.5" />} control={finalControl} />
+    </div>
+    <output aria-label="Berechneter Nachlauf" className="mt-2 flex min-h-9 items-center justify-between gap-3 rounded-[10px] bg-[var(--dialed-surface-subtle)] px-3 text-xs">
+      <span className="text-[var(--dialed-text-muted)]">Nachlauf</span>
+      <strong>{formatWeight(overshoot)}</strong>
+    </output>
   </div>;
+}
+
+function YieldBar({ stopWeight, finalWeight }: { stopWeight: number | null; finalWeight: number | null }) {
+  const maxWeight = Math.max(stopWeight ?? 0, finalWeight ?? 0, 1);
+  const stopWidth = Math.min(100, Math.max(0, (stopWeight ?? 0) / maxWeight * 100));
+  const finalWidth = Math.min(100, Math.max(0, (finalWeight ?? 0) / maxWeight * 100));
+  const firstWidth = finalWeight === null ? stopWidth : Math.min(stopWidth, finalWidth);
+  const afterStopWidth = Math.max(0, finalWidth - stopWidth);
+
+  return <div className="relative mt-4 h-3 overflow-hidden rounded-full bg-black/[.06]" aria-hidden="true">
+    <span className="absolute inset-y-0 left-0 bg-[var(--dialed-espresso)]" style={{ width: `${firstWidth}%` }} />
+    <span className="absolute inset-y-0 bg-[var(--dialed-crema)]" style={{ left: `${stopWidth}%`, width: `${afterStopWidth}%` }} />
+    {stopWeight !== null && <span className="absolute inset-y-[-3px] w-0.5 bg-white shadow-[0_0_0_1px_rgba(43,27,22,.2)]" style={{ left: `calc(${stopWidth}% - 1px)` }} />}
+  </div>;
+}
+
+function WeightControl({ label, icon, control }: { label: string; icon: ReactNode; control: ReactNode }) {
+  return <div className="min-w-0 rounded-[12px] border bg-white px-3 py-2.5">
+    <small className="flex items-center gap-1.5 text-[10px] font-medium text-[var(--dialed-text-muted)]">{icon}{label}</small>
+    <div className="min-w-0">{control}</div>
+  </div>;
+}
+
+function WeightValue({ label, value, highlighted = false }: { label: string; value: string; highlighted?: boolean }) {
+  return <DataMetric label={label} value={value} valueClassName={cn("mt-1 text-sm", highlighted && "text-[var(--dialed-crema)]")} />;
 }

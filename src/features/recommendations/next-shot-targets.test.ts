@@ -34,4 +34,19 @@ describe("resolveNextShotTargets", () => {
       changed: { dose: false, grind: false, stop: false },
     });
   });
+
+  it("ignoriert beschädigte JSON-Felder statt die Oberfläche abstürzen zu lassen", () => {
+    const malformed = {
+      target_recipe_snapshot: { doseGrams: "viel" },
+      primary_action: { changes: "keine Liste" },
+      execution_adjustments: ["ungültig"],
+    } as unknown as RecommendationBundleRecord;
+
+    expect(resolveNextShotTargets(malformed, latestShot)).toEqual({
+      doseGrams: 18,
+      grindSetting: "5",
+      stopWeightGrams: 34,
+      changed: { dose: false, grind: false, stop: false },
+    });
+  });
 });

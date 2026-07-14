@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
 import { calculateDialedScore, SCORING_VERSION, scoreTargetFromSnapshot } from "@/lib/calculations";
+import { normalizePrepTools } from "@/lib/prep-tools";
 import { requireUser } from "@/lib/supabase/auth";
 import {
   beanSchema,
@@ -13,13 +14,13 @@ import {
   type ShotEditInput,
   type ShotInput,
 } from "@/lib/validation";
+import { setupSchema, type SetupInput } from "@/features/setup/schema";
 import {
   completeAppliedRecommendation,
   generateAndStoreRecommendation,
-  parseRecipeSnapshot,
   recipeFromShot,
-  recommendationSetupKey,
 } from "@/features/recommendations/repository";
+import { parseRecipeSnapshot } from "@/features/recommendations/recipe";
 import { recipeIdentity } from "@/features/recommendations/signals";
 import { SHOT_COLUMNS, TARGET_RECIPE_COLUMNS } from "@/features/data/columns";
 import { toShot } from "@/features/data/normalize";
@@ -34,7 +35,6 @@ export type MutationResult = {
   id?: string;
   score?: number | null;
   coverage?: number;
-  recommendationId?: string;
 };
 
 export async function saveBean(input: BeanInput): Promise<MutationResult> {
@@ -79,18 +79,7 @@ export async function archiveBean(id: string, archive: boolean): Promise<Mutatio
   return { ok: true, message: archive ? "Bohne archiviert" : "Bohne wiederhergestellt" };
 }
 
-const setupSchema = z.object({
-  displayName: z.string().trim().min(2).max(80),
-  machineName: z.string().trim().min(1).max(120),
-  grinderName: z.string().trim().min(1).max(120),
-  autoFill: z.boolean(),
-  tools: z.array(z.string()).max(20),
-  suggestions: z.boolean(),
-  roastWarning: z.boolean(),
-  warningDays: z.number().int().min(1).max(365),
-});
-
-export async function saveSetup(input: z.infer<typeof setupSchema>): Promise<MutationResult> {
+export async function saveSetup(input: SetupInput): Promise<MutationResult> {
   const parsed = setupSchema.safeParse(input);
   if (!parsed.success) return { ok: false, message: "Bitte prüfe die Setup-Angaben." };
   const { supabase, userId } = await requireUser();
@@ -221,7 +210,7 @@ async function buildShotPayload(
     targetRecipe: scoreTargetFromSnapshot(targetRecipeSnapshot),
     previousComparableShots,
   });
-  const prepTools = [...new Set((data.prepTools ?? []).filter((tool) => tool === "WDT" || tool === "Puck Screen"))];
+  const prepTools = normalizePrepTools(data.prepTools);
   return {
     payload: {
       user_id: userId,
@@ -361,104 +350,4 @@ export async function deleteShot(id: string): Promise<MutationResult> {
   revalidatePath("/app");
   revalidatePath("/app/shots");
   return { ok: true, message: "Shot gelöscht", id };
-}
-
-export async function applyRecommendation(id: string): Promise<MutationResult> {
-  const parsed = z.string().uuid().safeParse(id);
-  if (!parsed.success) return { ok: false, message: "Ungültige Empfehlung." };
-  const { supabase, userId } = await requireUser();
-  await supabase.from("recommendation_bundles").update({ status: "superseded" }).eq("user_id", userId).eq("status", "applied").neq("id", id);
-  const { data, error } = await supabase.from("recommendation_bundles")
-    .update({ status: "applied", applied_at: new Date().toISOString(), dismissed_at: null })
-    .eq("id", id)
-    .eq("user_id", userId)
-    .in("status", ["active", "applied"])
-    .select("id")
-    .single();
-  if (error || !data) return { ok: false, message: "Die Empfehlung konnte nicht übernommen werden." };
-  revalidatePath("/app");
-  return { ok: true, message: "Für den nächsten Shot übernommen", id: data.id };
-}
-
-export async function dismissRecommendation(id: string): Promise<MutationResult> {
-  const parsed = z.string().uuid().safeParse(id);
-  if (!parsed.success) return { ok: false, message: "Ungültige Empfehlung." };
-  const { supabase, userId } = await requireUser();
-  const { error } = await supabase.from("recommendation_bundles")
-    .update({ status: "dismissed", dismissed_at: new Date().toISOString() })
-    .eq("id", id)
-    .eq("user_id", userId)
-    .in("status", ["active", "applied"]);
-  if (error) return { ok: false, message: "Die Empfehlung konnte nicht ausgeblendet werden." };
-  revalidatePath("/app");
-  return { ok: true, message: "Tipp ausgeblendet" };
-}
-
-export async function suppressRecommendationSetup(id: string): Promise<MutationResult> {
-  const parsed = z.string().uuid().safeParse(id);
-  if (!parsed.success) return { ok: false, message: "Ungültige Empfehlung." };
-  const { supabase, userId } = await requireUser();
-  const recommendation = await supabase.from("recommendation_bundles").select("bean_id,machine_id,grinder_id,basket_id").eq("id", id).eq("user_id", userId).maybeSingle();
-  if (!recommendation.data) return { ok: false, message: "Die Empfehlung wurde nicht gefunden." };
-  const setup = {
-    beanId: recommendation.data.bean_id,
-    machineId: recommendation.data.machine_id,
-    grinderId: recommendation.data.grinder_id,
-    basketId: recommendation.data.basket_id,
-  };
-  const { error } = await supabase.from("recommendation_suppressions").upsert({
-    user_id: userId,
-    setup_key: recommendationSetupKey(setup),
-    bean_id: setup.beanId,
-    machine_id: setup.machineId,
-    grinder_id: setup.grinderId,
-    basket_id: setup.basketId,
-  }, { onConflict: "user_id,setup_key" });
-  if (error) return { ok: false, message: "Das Setup konnte nicht stummgeschaltet werden." };
-  await supabase.from("recommendation_bundles").update({ status: "dismissed", dismissed_at: new Date().toISOString() }).eq("id", id).eq("user_id", userId);
-  revalidatePath("/app");
-  return { ok: true, message: "Für dieses Setup werden keine Tipps mehr angezeigt" };
-}
-
-export async function saveReferenceRecipe(shotId: string): Promise<MutationResult> {
-  const parsed = z.string().uuid().safeParse(shotId);
-  if (!parsed.success) return { ok: false, message: "Ungültiger Shot." };
-  const { supabase, userId } = await requireUser();
-  const { data: rawShot, error } = await supabase.from("shots").select(SHOT_COLUMNS).eq("id", shotId).eq("user_id", userId).single();
-  if (error || !rawShot) return { ok: false, message: "Der Shot konnte nicht als Referenz geladen werden." };
-  const shot = toShot(rawShot as unknown as ShotRow);
-  const existing = await supabase.from("target_recipes").select("id,bean_id,machine_id,grinder_id,basket_id").eq("user_id", userId).eq("is_active", true);
-  const matching = (existing.data ?? []).filter((recipe) =>
-    recipe.bean_id === shot.bean_id &&
-    recipe.machine_id === shot.machine_id &&
-    recipe.grinder_id === shot.grinder_id &&
-    recipe.basket_id === shot.basket_id,
-  ).map((recipe) => recipe.id);
-  if (matching.length) await supabase.from("target_recipes").update({ is_active: false }).in("id", matching).eq("user_id", userId);
-  const { error: insertError } = await supabase.from("target_recipes").insert({
-    user_id: userId,
-    bean_id: shot.bean_id,
-    machine_id: shot.machine_id,
-    grinder_id: shot.grinder_id,
-    basket_id: shot.basket_id,
-    source_shot_id: shot.id,
-    name: "Referenzrezept",
-    recipe_snapshot: recipeFromShot(shot) as unknown as Record<string, unknown>,
-    is_active: true,
-  });
-  if (insertError) return { ok: false, message: "Das Referenzrezept konnte nicht gespeichert werden." };
-  await supabase.from("user_settings").update({ reference_shot_id: shot.id }).eq("user_id", userId);
-  revalidatePath("/app");
-  revalidatePath(`/app/shots/${shot.id}`);
-  return { ok: true, message: "Als Referenzrezept gespeichert" };
-}
-
-export async function rateRecommendation(id: string, helpful: boolean): Promise<MutationResult> {
-  const parsed = z.string().uuid().safeParse(id);
-  if (!parsed.success) return { ok: false, message: "Ungültige Empfehlung." };
-  const { supabase, userId } = await requireUser();
-  const { error } = await supabase.from("recommendation_bundles").update({ user_feedback: helpful ? "helpful" : "not_helpful" }).eq("id", id).eq("user_id", userId);
-  if (error) return { ok: false, message: "Deine Rückmeldung konnte nicht gespeichert werden." };
-  revalidatePath("/app/shots");
-  return { ok: true, message: "Danke für deine Rückmeldung" };
 }

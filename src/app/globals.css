@@ -36,7 +36,7 @@ button,a,input,select,textarea { -webkit-tap-highlight-color: transparent; }
 button:not(:disabled),a { transition: transform var(--motion-fast),background var(--motion-fast),box-shadow var(--motion-fast); }
 button:not(:disabled):active,a:active { transform: scale(.97); }
 :focus-visible { outline: 3px solid color-mix(in oklch,var(--dialed-crema) 45%,transparent); outline-offset: 2px; }
-.font-display { font-family: var(--font-newsreader),Georgia,serif; letter-spacing: -.035em; }
+.font-display { font-family: var(--font-newsreader),Georgia,serif; letter-spacing: 0; }
 .font-mono,.tabular { font-family: var(--font-jetbrains),monospace; font-variant-numeric: tabular-nums; }
 .scrollbar-none { scrollbar-width: none; }.scrollbar-none::-webkit-scrollbar { display:none; }
 .screen-in { animation: screen-in .4s var(--motion-ease) both; }
@@ -44,8 +44,6 @@ button:not(:disabled):active,a:active { transform: scale(.97); }
 @keyframes bean-float { 50% { transform:translateY(-7px) rotate(24deg) } }
 .bean-visual { position:absolute; width:68px; height:92px; right:30px; top:42px; border-radius:56% 44% 50% 50%; background:linear-gradient(150deg,#ad6a42,#6d3c2b 60%,#42251d); transform:rotate(28deg); box-shadow:inset -10px -13px 22px rgba(31,15,11,.38),0 20px 35px rgba(0,0,0,.18); animation:bean-float 5.5s ease-in-out infinite; }
 .bean-visual::after { content:""; position:absolute; width:4px; height:70px; border-radius:50%; background:rgba(37,18,13,.55); left:50%; top:10px; transform:rotate(-8deg); }
-.score-ring { background:conic-gradient(var(--dialed-crema) calc(var(--score)*1%),var(--dialed-surface-strong) 0); }
-.score-ring::before { content:""; position:absolute; inset:4px; background:#fff; border-radius:50%; }
 .app-shell { position:relative; display:grid; grid-template-rows:minmax(0,1fr) auto; width:100%; height:100dvh; overflow:hidden; background:var(--dialed-surface); isolation:isolate; }
 .app-viewport { position:relative; min-height:0; overflow:auto; scrollbar-width:none; padding:clamp(24px,4vw,44px) clamp(18px,5vw,48px) 110px; }
 .app-viewport > * { width:100%; max-width:680px; margin-inline:auto; }

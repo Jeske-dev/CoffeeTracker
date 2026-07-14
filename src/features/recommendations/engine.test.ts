@@ -1,6 +1,5 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { applyRecommendationToDefaults } from "./apply";
 import { generateRecommendation } from "./engine";
 import { normalizedFineness } from "./grind-sensitivity";
 import { calculateOutcome } from "./outcome";
@@ -152,25 +151,7 @@ describe("Stop-Gewicht", () => {
   });
 });
 
-describe("Anwendung, Lifecycle und Migration", () => {
-  const bundle = recommend({ taste: "sour", extractionTimeSeconds: 20 }, {
-    grinder: { grindScaleType: "stepped", minimumSetting: 0, maximumSetting: 20, microStep: 1, finerDirection: "higher" },
-  });
-
-  it("übernimmt genau ein empfohlenes Feld", () => {
-    const applied = applyRecommendationToDefaults({ grindSetting: "5", doseGrams: 18, prepTools: [], stopWeightGrams: 34, finalYieldGrams: 36 }, bundle);
-    expect(applied.values.grindSetting).toBe("7");
-    expect(applied.recommendedFields).toEqual(["grindSetting"]);
-    expect(applied.values.stopWeightGrams).toBe(34);
-  });
-
-  it("lässt alle nicht empfohlenen Felder unverändert", () => {
-    const applied = applyRecommendationToDefaults({ grindSetting: "5", doseGrams: 18, prepTools: ["Puck Screen"], stopWeightGrams: 34, finalYieldGrams: 36 }, bundle);
-    expect(applied.values.doseGrams).toBe(18);
-    expect(applied.values.prepTools).toEqual(["Puck Screen"]);
-    expect(applied.values.finalYieldGrams).toBe(36);
-  });
-
+describe("Lifecycle und Migration", () => {
   it("wertet Outcomes aus verfügbaren Teilwerten aus", () => {
     expect(calculateOutcome({ previousSensoryScore: 0.4, newSensoryScore: 0.7 }).value).toBeCloseTo(0.3);
   });

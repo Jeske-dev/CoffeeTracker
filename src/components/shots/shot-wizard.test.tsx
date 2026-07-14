@@ -1,4 +1,5 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { StrictMode } from "react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ShotWizard } from "./shot-wizard";
 import type { Bean, Equipment, RecommendationBundleRecord, Shot, UserSettings } from "@/types/domain";
@@ -8,12 +9,13 @@ const mocks = vi.hoisted(() => ({
   replace: vi.fn(),
   refresh: vi.fn(),
   saveShot: vi.fn(),
+  info: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push, replace: mocks.replace, refresh: mocks.refresh }) }));
 vi.mock("@/features/data/actions", () => ({
   saveShot: mocks.saveShot,
 }));
-vi.mock("sonner", () => ({ toast: { info: vi.fn(), success: vi.fn(), error: vi.fn() } }));
+vi.mock("sonner", () => ({ toast: { info: mocks.info, success: vi.fn(), error: vi.fn() } }));
 
 const bean: Bean = {
   id: "11111111-1111-4111-8111-111111111111", user_id: "user-1", name: "Test Bean", roaster: "Test Roaster", roast_date: null,
@@ -66,6 +68,40 @@ describe("vereinfachter ShotWizard", () => {
     expect(screen.queryByText(/Temperatur/i)).not.toBeInTheDocument();
   });
 
+  it("meldet einen wiederhergestellten Draft auch unter Strict Mode nur einmal", async () => {
+    localStorage.setItem("dialed:shot-draft:user-1", JSON.stringify({
+      version: 2,
+      step: 2,
+      values: {
+        beanId: bean.id,
+        machineId: machine.id,
+        grinderId: grinder.id,
+        basketId: null,
+        grindSetting: "5",
+        doseGrams: 18,
+        prepTools: ["WDT"],
+        extractionSeconds: null,
+        stopWeightGrams: 34,
+        finalYieldGrams: 36,
+        taste: null,
+        flow: null,
+        puck: null,
+        notes: null,
+        overallTasteRating: null,
+        targetRecipeSnapshot: null,
+        recommendationBundleId: null,
+        recommendationApplied: false,
+        recommendationChanges: [],
+        experimentMode: false,
+      },
+      updatedAt: "2026-07-14T10:00:00Z",
+    }));
+
+    render(<StrictMode><ShotWizard userId="user-1" beans={[bean]} equipment={[machine, grinder]} settings={settings} lastShot={lastShot} /></StrictMode>);
+    await waitFor(() => expect(mocks.info).toHaveBeenCalledOnce());
+    expect(mocks.info).toHaveBeenCalledWith("Shot-Entwurf fortgesetzt", { id: "shot-draft-restored" });
+  });
+
   it("zeigt alle Puck-Prep-Werkzeuge aus den Einstellungen als Schalter", () => {
     render(<ShotWizard userId="user-1" beans={[bean]} equipment={[machine, grinder]} settings={settings} lastShot={lastShot} />);
     for (const tool of ["WDT", "Tamper", "Puck Screen", "Leveler", "Papierfilter"]) {
@@ -84,6 +120,7 @@ describe("vereinfachter ShotWizard", () => {
     expect(screen.getByText("Test Mühle")).toBeInTheDocument();
     expect(container.querySelector('[data-entity-icon="machine"]')).toBeInTheDocument();
     expect(container.querySelector('[data-entity-icon="grinder"]')).toBeInTheDocument();
+    expect(screen.queryByText("Sieb")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Setup ändern/i })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "In den Einstellungen ändern" })).toHaveAttribute("href", "/app/setup");
   });
@@ -101,15 +138,18 @@ describe("vereinfachter ShotWizard", () => {
     await waitFor(() => expect(localStorage.getItem("dialed:shot-draft:user-1")).not.toBeNull());
   });
 
-  it("zeigt Gewichtsverlauf und Ratio ohne Timer", async () => {
-    render(<ShotWizard userId="user-1" beans={[bean]} equipment={[]} settings={null} lastShot={null} />);
+  it("integriert Gewichte in den Verlauf und setzt Zeit sowie Stopptipp darunter", async () => {
+    render(<ShotWizard userId="user-1" beans={[bean]} equipment={[machine, grinder]} settings={settings} lastShot={lastShot} stopWeightHistory={[lastShot]} />);
     fireEvent.click(screen.getByRole("button", { name: "Weiter" }));
     expect((await screen.findAllByRole("heading", { name: "Extraktion" })).length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: /Timer/i })).not.toBeInTheDocument();
-    expect(screen.getByLabelText(/Gewichtsverlauf:/)).toBeInTheDocument();
-    expect(screen.getByText("Brew Ratio")).toBeInTheDocument();
-    expect(screen.getByRole("spinbutton", { name: "Stop-Gewicht" })).toBeInTheDocument();
-    expect(screen.getByRole("spinbutton", { name: "Finales Getränkgewicht" })).toBeInTheDocument();
+    const weightGraphic = screen.getByLabelText(/Gewichtsverlauf:/);
+    expect(within(weightGraphic).getByRole("spinbutton", { name: "Stop-Gewicht" })).toBeInTheDocument();
+    expect(within(weightGraphic).getByRole("spinbutton", { name: "Finales Getränkgewicht" })).toBeInTheDocument();
+    expect(screen.queryByText("Brew Ratio")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Stopptipp: bei 34,0 g stoppen")).toHaveTextContent("1 Shot mit gleicher Bohne und gleichem Mahlgrad");
+    const extractionTime = screen.getByRole("spinbutton", { name: "Extraktionszeit" });
+    expect(weightGraphic.compareDocumentPosition(extractionTime) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("behält den Entwurf offline und deaktiviert das Speichern", async () => {
@@ -139,8 +179,12 @@ describe("vereinfachter ShotWizard", () => {
     fireEvent.change(screen.getByRole("spinbutton", { name: "Extraktionszeit" }), { target: { value: "29" } });
     fireEvent.click(screen.getByRole("button", { name: "Weiter" }));
     for (const taste of ["Zu sauer", "Leicht sauer", "Ausgewogen", "Leicht bitter", "Zu bitter"]) {
-      expect(await screen.findByRole("button", { name: taste })).toBeInTheDocument();
+      const tasteButton = await screen.findByRole("button", { name: taste });
+      expect(tasteButton).toBeInTheDocument();
+      expect(tasteButton).toHaveTextContent("");
     }
+    expect(screen.getByText("Zu sauer")).toBeInTheDocument();
+    expect(screen.getByText("Zu bitter")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Ausgewogen" }));
     fireEvent.click(screen.getByRole("button", { name: "Shot speichern" }));
     await waitFor(() => expect(mocks.saveShot).toHaveBeenCalledWith(expect.objectContaining({ taste: "balanced", overallTasteRating: 5 })));

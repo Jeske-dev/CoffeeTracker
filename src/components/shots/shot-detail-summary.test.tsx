@@ -45,7 +45,7 @@ describe("Shot-Detailzusammenfassung", () => {
     expect(screen.getByRole("heading", { name: "Extraktion auf einen Blick" })).toBeInTheDocument();
     expect(screen.getByText("5.2")).toBeInTheDocument();
     expect(screen.getByText("29,0 s")).toBeInTheDocument();
-    expect(screen.getByLabelText("Brew Ratio 1 : 2,00")).toBeInTheDocument();
+    expect(screen.queryByText("Brew Ratio")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Gewichtsverlauf: Stop 34,0 g, final 36,0 g, Nachlauf 2,0 g")).toBeInTheDocument();
     expect(screen.getByLabelText("Geschmack: Ausgewogen")).toBeInTheDocument();
     expect(screen.queryByText("Gesamtbewertung")).not.toBeInTheDocument();
@@ -70,7 +70,7 @@ describe("Shot-Detailzusammenfassung", () => {
   it("stellt fehlende Messwerte ohne ungültige Grafikwerte dar", () => {
     const { container } = render(<ShotDetailSummary shot={{ ...shot, dose_grams: null, extraction_seconds: null, stop_weight_grams: null, final_yield_grams: null, taste: null, overall_taste_rating: null }} />);
 
-    expect(screen.getByLabelText("Brew Ratio —")).toBeInTheDocument();
+    expect(screen.queryByText("Brew Ratio")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Geschmack: nicht angegeben")).toBeInTheDocument();
     expect(screen.queryByText("Gesamtbewertung")).not.toBeInTheDocument();
     expect(container.innerHTML).not.toContain("NaN");

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { CalendarDays, Check, CircleAlert, LoaderCircle, LogOut, Plus, RefreshCw, Timer, TrendingUp, TriangleAlert, UserRound } from "lucide-react";
 import { toast } from "sonner";
@@ -9,33 +9,21 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { EquipmentIcon } from "@/components/entities/entity-icons";
 import { InstallDialedCard } from "@/components/pwa/install-dialed-card";
-import { PREP_TOOLS } from "@/lib/prep-tools";
-import { saveSetup } from "@/features/data/actions";
-import { usePrivateCache } from "@/hooks/use-private-cache";
+import { normalizePrepTools, PREP_TOOLS, togglePrepTool, type PrepTool } from "@/lib/prep-tools";
+import type { SetupInput } from "@/features/setup/schema";
+import { useSetupAutosave, type SetupSaveStatus } from "@/features/setup/use-setup-autosave";
 import { usePrivateLogout } from "@/hooks/use-private-logout";
 import type { Equipment, UserSettings } from "@/types/domain";
 
 type Fields = { displayName: string; machineName: string; grinderName: string; warningDays: number };
-type SetupPayload = Parameters<typeof saveSetup>[0];
 const availableTools = PREP_TOOLS;
 
-function isValidSetup(payload: SetupPayload) {
-  return payload.displayName.trim().length >= 2
-    && payload.machineName.trim().length >= 1
-    && payload.grinderName.trim().length >= 1
-    && Number.isInteger(payload.warningDays)
-    && payload.warningDays >= 1
-    && payload.warningDays <= 365;
-}
-
 export function SetupForm({ userId, displayName, email, equipment, settings }: { userId: string; displayName: string; email: string; equipment: Equipment[]; settings: UserSettings | null }) {
-  const { invalidateSetupData } = usePrivateCache();
   const logout = usePrivateLogout();
   const [autoFill, setAutoFill] = useState(settings?.auto_fill ?? true);
-  const [selectedTools, setSelectedTools] = useState(settings?.default_prep_tools ?? availableTools.slice(0, 3));
+  const [selectedTools, setSelectedTools] = useState<PrepTool[]>(settings ? normalizePrepTools(settings.default_prep_tools) : availableTools.slice(0, 3));
   const [suggestions, setSuggestions] = useState(settings?.dial_in_suggestions_enabled ?? true);
   const [warning, setWarning] = useState(settings?.roast_age_warning_enabled ?? true);
-  const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "error">("saved");
   const [editingTextField, setEditingTextField] = useState<"displayName" | "machineName" | "grinderName" | "warningDays" | null>(null);
   const defaultValues = useMemo<Fields>(() => ({
     displayName,
@@ -49,7 +37,7 @@ export function SetupForm({ userId, displayName, email, equipment, settings }: {
   const grinderNameField = register("grinderName", { required: true });
   const warningDaysField = register("warningDays", { required: true, min: 1, max: 365, valueAsNumber: true });
   const values = useWatch({ control });
-  const payload = useMemo<SetupPayload>(() => ({
+  const payload = useMemo<SetupInput>(() => ({
     displayName: values.displayName ?? defaultValues.displayName,
     machineName: values.machineName ?? defaultValues.machineName,
     grinderName: values.grinderName ?? defaultValues.grinderName,
@@ -59,84 +47,16 @@ export function SetupForm({ userId, displayName, email, equipment, settings }: {
     suggestions,
     roastWarning: warning,
   }), [autoFill, defaultValues, selectedTools, suggestions, values.displayName, values.grinderName, values.machineName, values.warningDays, warning]);
-  const snapshot = JSON.stringify(payload);
-  const valid = isValidSetup(payload);
-  const [lastSavedSnapshot, setLastSavedSnapshot] = useState(snapshot);
-  const [failedSnapshot, setFailedSnapshot] = useState<string | null>(null);
-  const lastQueuedSnapshot = useRef(snapshot);
-  const latestSnapshot = useRef(snapshot);
-  const saveQueue = useRef<Promise<void>>(Promise.resolve());
-
-  const enqueueSave = useCallback((nextPayload: SetupPayload, nextSnapshot: string) => {
-    lastQueuedSnapshot.current = nextSnapshot;
-    setFailedSnapshot(null);
-    setSaveStatus("saving");
-    saveQueue.current = saveQueue.current.then(async () => {
-      try {
-        const result = await saveSetup(nextPayload);
-        if (!result.ok) {
-          if (latestSnapshot.current === nextSnapshot) {
-            if (lastQueuedSnapshot.current === nextSnapshot) lastQueuedSnapshot.current = "";
-            setFailedSnapshot(nextSnapshot);
-            setSaveStatus("error");
-            toast.error(result.message, { id: "setup-autosave-error" });
-          }
-          return;
-        }
-        if (latestSnapshot.current === nextSnapshot) {
-          setFailedSnapshot(null);
-          setLastSavedSnapshot(nextSnapshot);
-          setSaveStatus("saved");
-        }
-        try {
-          await invalidateSetupData(userId);
-        } catch (cacheError) {
-          console.error("invalidate setup cache failed", cacheError);
-        }
-      } catch {
-        if (latestSnapshot.current === nextSnapshot) {
-          if (lastQueuedSnapshot.current === nextSnapshot) lastQueuedSnapshot.current = "";
-          setFailedSnapshot(nextSnapshot);
-          setSaveStatus("error");
-          toast.error("Das Setup konnte nicht automatisch gespeichert werden.", { id: "setup-autosave-error" });
-        }
-      }
-    });
-  }, [invalidateSetupData, userId]);
-
-  useEffect(() => {
-    latestSnapshot.current = snapshot;
-    if (!valid || editingTextField || snapshot === lastQueuedSnapshot.current) return;
-    const timer = window.setTimeout(() => {
-      enqueueSave(payload, snapshot);
-    }, 500);
-    return () => window.clearTimeout(timer);
-  }, [editingTextField, enqueueSave, payload, snapshot, valid]);
-
-  const retrySave = useCallback(() => {
-    if (valid && !editingTextField) enqueueSave(payload, snapshot);
-  }, [editingTextField, enqueueSave, payload, snapshot, valid]);
-
-  useEffect(() => {
-    if (failedSnapshot !== snapshot) return;
-    window.addEventListener("online", retrySave);
-    return () => window.removeEventListener("online", retrySave);
-  }, [failedSnapshot, retrySave, snapshot]);
+  const { status: saveStatus, retry: retrySave, saveNow, commitDiscreteChange } = useSetupAutosave({
+    userId,
+    payload,
+    editing: editingTextField !== null,
+  });
 
   const finishTextEdit = (event: React.FocusEvent<HTMLInputElement>, onBlur: typeof machineNameField.onBlur) => {
     void onBlur(event);
     setEditingTextField(null);
-    if (valid && snapshot !== lastQueuedSnapshot.current) {
-      latestSnapshot.current = snapshot;
-      enqueueSave(payload, snapshot);
-    }
-  };
-
-  const commitDiscreteChange = (nextPayload: SetupPayload) => {
-    if (editingTextField || !isValidSetup(nextPayload)) return;
-    const nextSnapshot = JSON.stringify(nextPayload);
-    latestSnapshot.current = nextSnapshot;
-    enqueueSave(nextPayload, nextSnapshot);
+    saveNow(payload);
   };
 
   const changeAutoFill = (checked: boolean) => {
@@ -154,24 +74,17 @@ export function SetupForm({ userId, displayName, email, equipment, settings }: {
     commitDiscreteChange({ ...payload, roastWarning: checked });
   };
 
-  const toggleTool = (tool: string) => {
-    const nextTools = selectedTools.includes(tool) ? selectedTools.filter((item) => item !== tool) : [...selectedTools, tool];
+  const toggleTool = (tool: PrepTool) => {
+    const nextTools = togglePrepTool(selectedTools, tool);
     setSelectedTools(nextTools);
     commitDiscreteChange({ ...payload, tools: nextTools });
   };
 
   const signOut = async () => { try { await logout(); } catch { toast.error("Abmelden fehlgeschlagen. Bitte versuche es erneut."); } };
-  const visibleSaveStatus = !valid
-    ? "invalid"
-    : failedSnapshot === snapshot
-      ? "error"
-      : saveStatus === "saving" || snapshot !== lastSavedSnapshot
-        ? "saving"
-        : "saved";
   const warningDaysValid = Number.isInteger(payload.warningDays) && payload.warningDays >= 1 && payload.warningDays <= 365;
 
   return <div>
-    <header className="mx-0.5 mb-6 flex flex-wrap items-end justify-between gap-x-4 gap-y-1"><div className="min-w-0"><h1 className="font-display text-[30px] tracking-normal">Dein Setup</h1><p className="mt-1 text-sm leading-5 text-[var(--dialed-text-secondary)]">Wird bei neuen Shots vorausgefüllt</p></div><AutoSaveStatus status={visibleSaveStatus} onRetry={retrySave} /></header>
+    <header className="mx-0.5 mb-6 flex flex-wrap items-end justify-between gap-x-4 gap-y-1"><div className="min-w-0"><h1 className="font-display text-[30px] tracking-normal">Dein Setup</h1><p className="mt-1 text-sm leading-5 text-[var(--dialed-text-secondary)]">Wird bei neuen Shots vorausgefüllt</p></div><AutoSaveStatus status={saveStatus} onRetry={retrySave} /></header>
     <SettingsCard title="Standard-Equipment">
       <Setting stackControl icon={<EquipmentIcon type="machine" />} title="Siebträgermaschine" copy="Standard für neue Shots"><Input aria-label="Siebträgermaschine" aria-invalid={!payload.machineName.trim()} maxLength={120} placeholder="z. B. Linea Mini" className="h-11 w-full text-left text-base sm:w-[220px]" list="machines" {...machineNameField} onFocus={() => setEditingTextField("machineName")} onBlur={(event) => finishTextEdit(event, machineNameField.onBlur)} /><datalist id="machines">{equipment.filter((item) => item.type === "machine").map((item) => <option key={item.id}>{item.name}</option>)}</datalist></Setting>
       <Setting stackControl icon={<EquipmentIcon type="grinder" />} title="Mühle" copy="Standard für neue Shots"><Input aria-label="Mühle" aria-invalid={!payload.grinderName.trim()} maxLength={120} placeholder="z. B. Niche Zero" className="h-11 w-full text-left text-base sm:w-[220px]" list="grinders" {...grinderNameField} onFocus={() => setEditingTextField("grinderName")} onBlur={(event) => finishTextEdit(event, grinderNameField.onBlur)} /><datalist id="grinders">{equipment.filter((item) => item.type === "grinder").map((item) => <option key={item.id}>{item.name}</option>)}</datalist></Setting>
@@ -188,7 +101,7 @@ export function SetupForm({ userId, displayName, email, equipment, settings }: {
   </div>;
 }
 
-function AutoSaveStatus({ status, onRetry }: { status: "saved" | "saving" | "error" | "invalid"; onRetry: () => void }) {
+function AutoSaveStatus({ status, onRetry }: { status: SetupSaveStatus; onRetry: () => void }) {
   const config = {
     saved: { icon: Check, label: "Gespeichert", iconClassName: "text-[var(--dialed-sage)]" },
     saving: { icon: LoaderCircle, label: "Speichert …", iconClassName: "text-[var(--dialed-text-muted)]" },

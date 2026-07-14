@@ -1,42 +1,30 @@
-import { CircleDot, Gauge, ListChecks, NotebookText, Scale, Timer, Weight } from "lucide-react";
+import { CircleHelp, Gauge, ListChecks, NotebookText, Scale, Timer, Weight, type LucideIcon } from "lucide-react";
 import { EquipmentIdentity } from "@/components/entities/entity-icons";
-import { brewRatio } from "@/lib/calculations";
-import { formatWeight } from "@/lib/formatting";
+import { DataMetric, LabeledValue } from "@/components/ui/data-metric";
+import { SectionCard } from "@/components/ui/section-card";
+import { formatTime, formatWeight } from "@/lib/formatting";
+import { puckStateLabel, shotFlowLabel } from "@/lib/shot-options";
 import type { Equipment, ShotWithBean } from "@/types/domain";
-import { RatioVisual, TasteScale, YieldFlowGraphic } from "./shot-visuals";
+import { puckStateIcons, shotFlowIcons } from "./shot-option-icons";
+import { TasteScale, YieldFlowGraphic } from "./shot-visuals";
 
 export function ShotDetailSummary({ shot }: { shot: ShotWithBean }) {
-  const ratio = brewRatio(shot.final_yield_grams, shot.dose_grams);
-
   return <>
-    <section className="rounded-[24px] border bg-white p-4 shadow-[var(--shadow-sm)]" aria-labelledby="shot-key-data">
-      <div className="mb-4 flex items-center gap-3">
-        <span className="grid size-10 shrink-0 place-items-center rounded-[13px] bg-[var(--dialed-crema-soft)] text-[var(--dialed-crema)]"><Gauge aria-hidden="true" className="size-4.5" /></span>
-        <div>
-          <h2 id="shot-key-data" className="text-sm font-extrabold">Extraktion auf einen Blick</h2>
-          <p className="mt-0.5 text-xs text-[var(--dialed-text-muted)]">Die entscheidenden Werte dieses Shots</p>
-        </div>
-      </div>
-
+    <SectionCard title="Extraktion auf einen Blick" description="Die entscheidenden Werte dieses Shots" icon={Gauge} tone="crema">
       <div className="grid grid-cols-3 divide-x border-y py-3">
-        <QuickMetric icon={Gauge} label="Mahlgrad" value={shot.grind_setting ?? "—"} />
-        <QuickMetric icon={Timer} label="Zeit" value={shot.extraction_seconds === null ? "—" : `${shot.extraction_seconds.toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} s`} />
-        <QuickMetric icon={Weight} label="Dosis" value={formatWeight(shot.dose_grams)} />
+        <DataMetric icon={Gauge} label="Mahlgrad" value={shot.grind_setting ?? "—"} align="center" className="px-2 first:pl-0 last:pr-0" valueClassName="text-[15px]" />
+        <DataMetric icon={Timer} label="Zeit" value={formatTime(shot.extraction_seconds)} align="center" className="px-2 first:pl-0 last:pr-0" valueClassName="text-[15px]" />
+        <DataMetric icon={Weight} label="Dosis" value={formatWeight(shot.dose_grams)} align="center" className="px-2 first:pl-0 last:pr-0" valueClassName="text-[15px]" />
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,.7fr)_minmax(0,1.3fr)]">
-        <RatioVisual ratio={ratio} />
+      <div className="mt-4">
         <YieldFlowGraphic stopWeight={shot.stop_weight_grams} finalWeight={shot.final_yield_grams} />
       </div>
-    </section>
+    </SectionCard>
 
-    <section className="mt-3 rounded-[24px] border bg-white p-4 shadow-[var(--shadow-sm)]" aria-labelledby="shot-taste">
-      <div className="mb-3 flex items-center gap-3">
-        <span className="grid size-10 shrink-0 place-items-center rounded-[13px] bg-[var(--dialed-sage-soft)] text-[var(--dialed-sage)]"><ListChecks aria-hidden="true" className="size-4.5" /></span>
-        <h2 id="shot-taste" className="text-sm font-extrabold">Geschmack & Bewertung</h2>
-      </div>
+    <SectionCard title="Geschmack & Bewertung" icon={ListChecks} tone="sage" className="mt-3">
       <TasteScale taste={shot.taste} rating={shot.overall_taste_rating} />
-    </section>
+    </SectionCard>
   </>;
 }
 
@@ -52,52 +40,29 @@ export function ShotMoreDetails({
   basket: Pick<Equipment, "name" | "type"> | null;
 }) {
   const prepTools = shot.prep_tools?.length ? shot.prep_tools.join(" · ") : "Keine angegeben";
+  const FlowIcon = shot.flow ? shotFlowIcons[shot.flow] : CircleHelp;
+  const PuckIcon = shot.puck ? puckStateIcons[shot.puck] : CircleHelp;
 
-  return <section className="mt-3 overflow-hidden rounded-[24px] border bg-white shadow-[var(--shadow-sm)]" aria-labelledby="shot-more-details">
-    <div className="flex items-center gap-3 px-4 py-4">
-      <span className="grid size-10 shrink-0 place-items-center rounded-[13px] bg-[var(--dialed-surface-subtle)] text-[var(--dialed-crema)]"><Scale aria-hidden="true" className="size-4.5" /></span>
-      <h2 id="shot-more-details" className="text-sm font-extrabold">Weitere Angaben</h2>
-    </div>
+  return <SectionCard title="Weitere Angaben" icon={Scale} className="mt-3 overflow-hidden" bodyClassName="-mx-4 -mb-4">
     <div className="grid sm:grid-cols-2">
       <EntityDetail label="Maschine"><EquipmentIdentity equipment={machine} type="machine" fallback="Nicht angegeben" /></EntityDetail>
       <EntityDetail label="Mühle"><EquipmentIdentity equipment={grinder} type="grinder" fallback="Nicht angegeben" /></EntityDetail>
       {basket && <EntityDetail label="Sieb"><EquipmentIdentity equipment={basket} type="basket" fallback="Nicht angegeben" /></EntityDetail>}
       <DetailRow icon={ListChecks} label="Puck-Prep" value={prepTools} />
-      <DetailRow icon={Gauge} label="Extraktionsbild" value={extractionPictureLabel(shot.flow)} />
-      <DetailRow icon={CircleDot} label="Puck" value={puckLabel(shot.puck)} />
+      <DetailRow icon={FlowIcon} label="Extraktionsbild" value={shotFlowLabel(shot.flow)} />
+      <DetailRow icon={PuckIcon} label="Puck" value={puckStateLabel(shot.puck)} />
       <DetailRow icon={NotebookText} label="Notiz" value={shot.notes || "Keine Notiz"} wide />
     </div>
-  </section>;
-}
-
-function QuickMetric({ icon: Icon, label, value }: { icon: typeof Gauge; label: string; value: string }) {
-  return <div className="min-w-0 px-2 text-center first:pl-0 last:pr-0">
-    <span className="flex items-center justify-center gap-1 text-xs text-[var(--dialed-text-muted)]"><Icon aria-hidden="true" className="size-3.5" />{label}</span>
-    <strong className="mt-1.5 block truncate text-[15px]">{value}</strong>
-  </div>;
+  </SectionCard>;
 }
 
 function EntityDetail({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div className="min-w-0 border-t px-4 py-3.5 sm:odd:border-r">
-    <span className="mb-2 block text-xs text-[var(--dialed-text-muted)]">{label}</span>
-    <div className="min-w-0 text-xs">{children}</div>
-  </div>;
+  return <LabeledValue label={label} className="border-t px-4 py-3.5 sm:odd:border-r">{children}</LabeledValue>;
 }
 
-function DetailRow({ icon: Icon, label, value, wide = false }: { icon: typeof Gauge; label: string; value: string; wide?: boolean }) {
+function DetailRow({ icon: Icon, label, value, wide = false }: { icon: LucideIcon; label: string; value: string; wide?: boolean }) {
   return <div className={`${wide ? "sm:col-span-2" : "sm:odd:border-r"} grid min-w-0 grid-cols-[32px_minmax(0,1fr)] items-start gap-2.5 border-t px-4 py-3.5`}>
     <span className="grid size-8 place-items-center rounded-[10px] bg-[var(--dialed-surface-subtle)] text-[var(--dialed-text-secondary)]"><Icon aria-hidden="true" className="size-4" /></span>
-    <span className="min-w-0">
-      <span className="block text-xs text-[var(--dialed-text-muted)]">{label}</span>
-      <strong className="mt-1 block break-words text-xs leading-5">{value}</strong>
-    </span>
+    <DataMetric label={label} value={value} truncateValue={false} valueClassName="mt-1 whitespace-normal text-xs leading-5" />
   </div>;
-}
-
-function extractionPictureLabel(flow: ShotWithBean["flow"]) {
-  return flow ? ({ even: "Gleichmäßig", minor_channeling: "Leichtes Channeling", channeling: "Starkes Channeling" })[flow] : "Nicht angegeben";
-}
-
-function puckLabel(puck: ShotWithBean["puck"]) {
-  return puck ? ({ dry: "Trocken", ideal: "Normal", wet: "Nass", stuck: "Festhängend" })[puck] : "Nicht angegeben";
 }

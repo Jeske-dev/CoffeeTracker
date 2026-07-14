@@ -1,14 +1,14 @@
 import Link from "next/link";
-import { ChartNoAxesColumnIncreasing, Gauge, Timer, Weight } from "lucide-react";
+import { Gauge, Timer, Weight } from "lucide-react";
 import { BeanIcon, EntityIconFrame } from "@/components/entities/entity-icons";
-import { brewRatio } from "@/lib/calculations";
-import { formatDateTime, formatTime, formatWeight } from "@/lib/formatting";
+import { DataMetric } from "@/components/ui/data-metric";
+import { formatDateTime, formatTime } from "@/lib/formatting";
 import type { ShotSummary } from "@/types/domain";
-import { RatioVisual, TasteBadge } from "./shot-visuals";
+import { TasteBadge } from "./shot-visuals";
+
+const compactWeight = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 });
 
 export function ShotCard({ shot }: { shot: ShotSummary }) {
-  const ratio = brewRatio(shot.final_yield_grams, shot.dose_grams);
-
   return (
     <Link href={`/app/shots/${shot.id}`} className="block rounded-[18px] border bg-white p-4 shadow-[0_7px_18px_rgba(54,34,24,.05)] transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-[var(--shadow-sm)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--dialed-crema)]">
       <div className="grid grid-cols-[46px_minmax(0,1fr)] items-center gap-3">
@@ -21,28 +21,17 @@ export function ShotCard({ shot }: { shot: ShotSummary }) {
           </div>
         </div>
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t pt-3 sm:grid-cols-4">
-        <ShotMetric icon={Gauge} label="Mahlgrad" value={shot.grind_setting ?? "—"} />
-        <ShotMetric icon={Timer} label="Extraktionszeit" value={formatTime(shot.extraction_seconds)} />
-        <ShotMetric icon={Weight} label="Stop / Final" value={formatWeightPair(shot.stop_weight_grams, shot.final_yield_grams)} />
-        <div className="min-w-0">
-          <span className="flex items-center gap-1.5 text-xs text-[var(--dialed-text-muted)]"><ChartNoAxesColumnIncreasing aria-hidden="true" className="size-3.5" />Ratio</span>
-          <RatioVisual ratio={ratio} compact />
-        </div>
+      <div className="mt-4 grid grid-cols-3 divide-x border-y py-3">
+        <DataMetric icon={Gauge} label="Mahlgrad" value={shot.grind_setting ?? "—"} align="center" className="px-2 first:pl-0 last:pr-0" valueClassName="text-[13px]" />
+        <DataMetric icon={Timer} label="Zeit" value={formatTime(shot.extraction_seconds)} align="center" className="px-2 first:pl-0 last:pr-0" valueClassName="text-[13px]" />
+        <DataMetric icon={Weight} label="Stop / Final" value={formatWeightPair(shot.stop_weight_grams, shot.final_yield_grams)} align="center" className="px-2 first:pl-0 last:pr-0" valueClassName="whitespace-nowrap text-[11px]" truncateValue={false} />
       </div>
     </Link>
   );
 }
 
-function ShotMetric({ icon: Icon, label, value }: { icon: typeof Gauge; label: string; value: string }) {
-  return <div className="min-w-0">
-    <span className="flex items-center gap-1.5 text-xs text-[var(--dialed-text-muted)]"><Icon aria-hidden="true" className="size-3.5" />{label}</span>
-    <strong className="mt-1.5 block truncate text-[13px]">{value}</strong>
-  </div>;
-}
-
 function formatWeightPair(stopWeight: number | null, finalWeight: number | null) {
-  const stop = formatWeight(stopWeight).replace(" g", "");
-  const final = formatWeight(finalWeight);
-  return `${stop} / ${final}`;
+  const stop = stopWeight === null ? "—" : compactWeight.format(stopWeight);
+  const final = finalWeight === null ? "—" : compactWeight.format(finalWeight);
+  return `${stop} / ${final} g`;
 }

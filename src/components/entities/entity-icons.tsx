@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { Bean as BeanGlyph, CircleDot, Coffee, Settings2, Wrench, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { flagForOrigin } from "@/lib/country-flags";
@@ -20,12 +21,14 @@ export function EntityIconFrame({
   children,
   size = "sm",
   className,
+  style,
 }: {
   children: React.ReactNode;
   size?: keyof typeof frameSizes;
   className?: string;
+  style?: CSSProperties;
 }) {
-  return <span className={cn("grid shrink-0 place-items-center bg-[var(--dialed-surface-subtle)] text-[var(--dialed-crema)]", frameSizes[size], className)}>{children}</span>;
+  return <span style={style} className={cn("grid shrink-0 place-items-center bg-[var(--dialed-surface-subtle)] text-[var(--dialed-crema)]", frameSizes[size], className)}>{children}</span>;
 }
 
 export function BeanIcon({ origin, className }: { origin?: string | null; className?: string }) {
