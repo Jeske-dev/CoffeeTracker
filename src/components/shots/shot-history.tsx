@@ -1,17 +1,59 @@
 "use client";
+
 import { useState } from "react";
-import { isSweetSpot, brewRatio } from "@/lib/calculations";
+import { ChevronDown, LayoutGrid, Table2 } from "lucide-react";
+import { BeanIcon, EntityIconFrame } from "@/components/entities/entity-icons";
 import { ShotCard } from "./shot-card";
+import { ShotTable } from "./shot-table";
 import type { ShotSummary } from "@/types/domain";
 
-const filters = ["Alle", "Sweet Spot", "Sauer", "Bitter"] as const;
 export function ShotHistory({ shots }: { shots: ShotSummary[] }) {
-  const [filter, setFilter] = useState<(typeof filters)[number]>("Alle");
-  const filtered = shots.filter((s) => {
-    if (filter === "Alle") return true;
-    if (filter === "Sweet Spot") return isSweetSpot(s.extraction_seconds, brewRatio(s.final_yield_grams, s.dose_grams));
-    if (s.taste === null) return false;
-    return filter === "Sauer" ? s.taste === "sour" : s.taste === "bitter";
-  });
-  return <><div className="scrollbar-none mb-4 flex gap-2 overflow-x-auto">{filters.map((item) => <button key={item} onClick={() => setFilter(item)} aria-pressed={filter === item} className={`min-h-11 whitespace-nowrap rounded-full border px-4 text-[11px] ${filter === item ? "border-[var(--dialed-espresso)] bg-[var(--dialed-espresso)] font-bold text-white" : "bg-white text-[var(--dialed-text-secondary)]"}`}>{item}</button>)}</div><div className="grid gap-2.5">{filtered.length ? filtered.map((s) => <ShotCard key={s.id} shot={s} />) : <div className="rounded-[24px] border border-dashed p-10 text-center"><strong className="font-display text-xl font-medium">Keine Treffer</strong><p className="mt-2 text-xs text-[var(--dialed-text-muted)]">Für diesen Filter gibt es noch keine dokumentierten Shots.</p></div>}</div></>;
+  const [view, setView] = useState<"cards" | "table">("cards");
+  const [beanId, setBeanId] = useState("all");
+
+  if (!shots.length) {
+    return <div className="rounded-[24px] border border-dashed p-10 text-center">
+      <strong className="font-display text-xl font-medium">Noch keine Shots</strong>
+      <p className="mt-2 text-xs text-[var(--dialed-text-muted)]">Deine gespeicherten Extraktionen erscheinen hier.</p>
+    </div>;
+  }
+
+  const beanOptions = [...new Map(shots.flatMap((shot) => shot.beans ? [[shot.beans.id, shot.beans] as const] : [])).values()]
+    .sort((left, right) => left.name.localeCompare(right.name, "de"));
+  const effectiveBeanId = beanId === "all" || beanOptions.some((bean) => bean.id === beanId) ? beanId : "all";
+  const selectedBean = beanOptions.find((bean) => bean.id === effectiveBeanId) ?? null;
+  const filteredShots = effectiveBeanId === "all" ? shots : shots.filter((shot) => shot.bean_id === effectiveBeanId);
+
+  return <section aria-label="Shot-Historie">
+    <div className="mb-3 flex items-center justify-between gap-2">
+      <label className="relative flex min-h-[52px] min-w-0 max-w-[250px] flex-1 items-center gap-2 rounded-[12px] border bg-white px-2.5 shadow-[0_4px_12px_rgba(54,34,24,.04)]">
+        <EntityIconFrame><BeanIcon origin={selectedBean?.origin} /></EntityIconFrame>
+        <select aria-label="Nach Bohne filtern" value={effectiveBeanId} onChange={(event) => setBeanId(event.target.value)} className="min-w-0 flex-1 appearance-none bg-transparent pr-6 text-xs font-bold outline-none">
+          <option value="all">Alle Bohnen</option>
+          {beanOptions.map((bean) => <option key={bean.id} value={bean.id}>{bean.name}</option>)}
+        </select>
+        <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-3 size-3.5 text-[var(--dialed-text-muted)]" />
+      </label>
+      <div role="group" aria-label="Darstellung" className="inline-grid grid-cols-2 rounded-[12px] border bg-white p-1 shadow-[0_4px_12px_rgba(54,34,24,.04)]">
+        <ViewButton active={view === "cards"} label="Kartenansicht" onClick={() => setView("cards")}><LayoutGrid className="size-4" /></ViewButton>
+        <ViewButton active={view === "table"} label="Tabellenansicht" onClick={() => setView("table")}><Table2 className="size-4" /></ViewButton>
+      </div>
+    </div>
+    {filteredShots.length
+      ? view === "cards"
+        ? <div className="grid gap-2.5">{filteredShots.map((shot) => <ShotCard key={shot.id} shot={shot} />)}</div>
+        : <ShotTable shots={filteredShots} />
+      : <div className="rounded-[24px] border border-dashed p-8 text-center"><strong className="font-display text-xl font-medium">Keine Shots für diese Bohne</strong><p className="mt-2 text-xs text-[var(--dialed-text-muted)]">Wähle eine andere Bohne oder zeige wieder alle an.</p></div>}
+  </section>;
+}
+
+function ViewButton({ active, label, onClick, children }: { active: boolean; label: string; onClick: () => void; children: React.ReactNode }) {
+  return <button
+    type="button"
+    aria-label={label}
+    title={label}
+    aria-pressed={active}
+    onClick={onClick}
+    className={`grid size-11 place-items-center rounded-[9px] ${active ? "bg-[var(--dialed-espresso)] text-white" : "text-[var(--dialed-text-muted)] hover:bg-[var(--dialed-surface-subtle)]"}`}
+  >{children}</button>;
 }

@@ -19,7 +19,7 @@ function queryBuilder<T>(promise: Promise<T>) {
 
 describe("route-specific data queries", () => {
   it("startet alle unabhängigen Dashboard-Abfragen parallel", async () => {
-    const pending = Array.from({ length: 6 }, () => deferred<{ data: unknown; error: null }>());
+    const pending = Array.from({ length: 5 }, () => deferred<{ data: unknown; error: null }>());
     let index = 0;
     const from = vi.fn(() => queryBuilder(pending[index++].promise));
     const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
@@ -27,18 +27,17 @@ describe("route-specific data queries", () => {
     const resultPromise = loadDashboardData("user-a", { from } as never);
     await Promise.resolve();
     await Promise.resolve();
-    expect(from).toHaveBeenCalledTimes(6);
+    expect(from).toHaveBeenCalledTimes(5);
 
     pending[0].resolve({ data: { id: "user-a", display_name: "A", created_at: "2026-01-01" }, error: null });
     pending[1].resolve({ data: null, error: null });
     pending[2].resolve({ data: [], error: null });
     pending[3].resolve({ data: [], error: null });
     pending[4].resolve({ data: null, error: null });
-    pending[5].resolve({ data: [], error: null });
 
     const result = await resultPromise;
     expect(result.shots).toEqual([]);
-    expect(info).toHaveBeenCalledWith("dialed.performance", expect.objectContaining({ kind: "dashboard", queryCount: 6 }));
+    expect(info).toHaveBeenCalledWith("dialed.performance", expect.objectContaining({ kind: "dashboard", queryCount: 5 }));
     info.mockRestore();
   });
 });

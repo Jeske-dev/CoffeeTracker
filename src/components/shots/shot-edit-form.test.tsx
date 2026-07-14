@@ -106,7 +106,11 @@ describe("ShotEditForm", () => {
     expect(screen.queryByText(/erster Tropfen/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Druck/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Astringenz/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Tamp/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Tamper" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Papierfilter" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Leicht sauer" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Leicht bitter" })).toBeInTheDocument();
+    expect(screen.queryByText("Gesamtbewertung")).not.toBeInTheDocument();
   });
 
   it("bricht ohne Mutation ab", () => {

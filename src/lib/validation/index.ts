@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PREP_TOOLS } from "@/lib/prep-tools";
 
 const optionalNumber = (min: number, max: number) => z.union([z.number().min(min).max(max), z.null()]);
 export const authSchema = z.object({ displayName: z.string().trim().min(2, "Bitte gib mindestens 2 Zeichen ein.").max(80).optional(), email: z.email("Bitte gib eine gültige E-Mail-Adresse ein."), password: z.string().min(8, "Das Passwort muss mindestens 8 Zeichen haben.") });
@@ -24,7 +25,7 @@ const shotFields = {
   basketId: z.string().uuid().nullable(),
   grindSetting: z.string().trim().min(1).max(40).nullable(),
   doseGrams: z.number().positive("Bitte gib eine Dosis ein.").max(100),
-  prepTools: z.union([z.array(z.enum(["WDT", "Puck Screen"])).max(2), z.null()]),
+  prepTools: z.union([z.array(z.enum(PREP_TOOLS)).max(PREP_TOOLS.length), z.null()]),
   extractionSeconds: optionalNumber(0.1, 300),
   stopWeightGrams: optionalNumber(0, 500),
   finalYieldGrams: z.number().positive("Bitte gib das finale Getränkgewicht ein.").max(500),

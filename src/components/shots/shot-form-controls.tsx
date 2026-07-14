@@ -1,4 +1,4 @@
-import { Check, Minus, Plus, type LucideIcon } from "lucide-react";
+import { Check, CircleMinus, CirclePlus, Minus, Plus, Scale, type LucideIcon } from "lucide-react";
 import type { UseFormRegisterReturn } from "react-hook-form";
 import {
   Select,
@@ -8,6 +8,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { BeanIcon, EntityIconFrame, EquipmentIcon } from "@/components/entities/entity-icons";
+import { PREP_TOOLS, type PrepTool } from "@/lib/prep-tools";
+import { tasteLevelFromShot, tasteLevelValues, type TasteLevel } from "@/lib/taste-scale";
 import type { Bean, Equipment, EquipmentType } from "@/types/domain";
 
 export const nullableString = { setValueAs: (value: string) => value === "" ? null : value };
@@ -87,10 +89,51 @@ export function ToggleChip({ label, active, onClick }: { label: string; active: 
   return <button type="button" aria-label={`${label}: ${active ? "verwendet" : "nicht verwendet"}`} aria-pressed={active} onClick={onClick} className={`flex min-h-11 w-full items-center justify-between rounded-[12px] px-3 font-bold ${active ? "bg-[var(--dialed-sage-soft)] text-[var(--dialed-sage)]" : "bg-[var(--dialed-surface-subtle)] text-[var(--dialed-text-muted)]"}`}><span>{active ? "Verwendet" : "Nicht verwendet"}</span><Check className={`size-4 ${active ? "opacity-100" : "opacity-0"}`} /></button>;
 }
 
+export function PrepToolsControl({ value, onToggle }: { value: string[]; onToggle: (tool: PrepTool) => void }) {
+  return <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+    {PREP_TOOLS.map((tool) => {
+      const active = value.includes(tool);
+      return <button type="button" key={tool} aria-pressed={active} onClick={() => onToggle(tool)} className={`flex min-h-11 min-w-0 items-center gap-2 rounded-[11px] border px-2.5 text-left text-xs font-bold ${active ? "border-[var(--dialed-sage)]/35 bg-[var(--dialed-sage-soft)] text-[var(--dialed-sage)]" : "bg-white text-[var(--dialed-text-secondary)]"}`}>
+        {active ? <Check aria-hidden="true" className="size-3.5 shrink-0" /> : <Plus aria-hidden="true" className="size-3.5 shrink-0" />}
+        <span className="min-w-0 truncate">{tool}</span>
+      </button>;
+    })}
+  </div>;
+}
+
+const tasteOptions: Array<{ level: TasteLevel; shortLabel: string; icon: LucideIcon }> = [
+  { level: "too_sour", shortLabel: "Zu sauer", icon: CircleMinus },
+  { level: "slightly_sour", shortLabel: "Leicht sauer", icon: Minus },
+  { level: "balanced", shortLabel: "Ausgewogen", icon: Scale },
+  { level: "slightly_bitter", shortLabel: "Leicht bitter", icon: Plus },
+  { level: "too_bitter", shortLabel: "Zu bitter", icon: CirclePlus },
+];
+
+export function TasteMatrixControl({ taste, rating, onSelect }: { taste: "sour" | "balanced" | "bitter" | null; rating: number | null; onSelect: (taste: "sour" | "balanced" | "bitter" | null, rating: number | null) => void }) {
+  const active = tasteLevelFromShot(taste, rating);
+  return <div className="grid grid-cols-5 gap-1">
+    {tasteOptions.map(({ level, shortLabel, icon: Icon }) => {
+      const selected = level === active;
+      const values = tasteLevelValues[level];
+      return <button
+        type="button"
+        key={level}
+        aria-label={values.label}
+        aria-pressed={selected}
+        onClick={() => onSelect(selected ? null : values.taste, selected ? null : values.rating)}
+        className={`grid min-h-[76px] min-w-0 place-items-center content-center gap-1 rounded-[11px] border px-0.5 py-2 text-center ${selected ? "border-[var(--dialed-sage)]/35 bg-[var(--dialed-sage-soft)] text-[var(--dialed-sage)]" : "bg-white text-[var(--dialed-text-muted)]"}`}
+      >
+        <Icon aria-hidden="true" className="size-4" />
+        <span className={`max-w-full break-words font-bold leading-3 min-[400px]:text-[10px] ${level === "balanced" ? "text-[8px]" : "text-[9px]"}`}>{shortLabel}</span>
+      </button>;
+    })}
+  </div>;
+}
+
 export function RatingControl({ value, onSelect }: { value: number | null; onSelect: (value: number) => void }) {
   return <div className="grid grid-cols-5 gap-1.5">{[1, 2, 3, 4, 5].map((item) => <button type="button" key={item} onClick={() => onSelect(item)} aria-pressed={value === item} className={`min-h-11 rounded-[11px] border text-[11px] font-bold ${value === item ? "border-[var(--dialed-crema)] bg-[var(--dialed-crema-soft)]" : "bg-white"}`}>{item}</button>)}</div>;
 }
 
 export function SegmentedControl<T extends string>({ values, active, onSelect, columns = 3 }: { values: readonly (readonly [T, string, LucideIcon])[]; active: T | null; onSelect: (value: T) => void; columns?: number }) {
-  return <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>{values.map(([id, label, Icon]) => <button type="button" key={id} onClick={() => onSelect(id)} aria-pressed={active === id} className={`grid min-h-[68px] min-w-0 place-items-center gap-1 rounded-[12px] border px-1 py-2 text-center ${active === id ? "border-[var(--dialed-sage)]/35 bg-[var(--dialed-sage-soft)]" : "bg-white"}`}><Icon className="size-4" /><span className="break-words text-[8px] leading-3">{label}</span></button>)}</div>;
+  return <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>{values.map(([id, label, Icon]) => <button type="button" key={id} onClick={() => onSelect(id)} aria-pressed={active === id} className={`grid min-h-[72px] min-w-0 place-items-center content-center gap-1 rounded-[12px] border px-1 py-2 text-center ${active === id ? "border-[var(--dialed-sage)]/35 bg-[var(--dialed-sage-soft)]" : "bg-white"}`}><Icon className="size-4" /><span className="break-words text-[10px] leading-3">{label}</span></button>)}</div>;
 }

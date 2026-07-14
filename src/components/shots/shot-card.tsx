@@ -1,16 +1,48 @@
 import Link from "next/link";
-import { BeanIcon } from "@/components/entities/entity-icons";
-import { brewRatio, TASTE_COLORS } from "@/lib/calculations";
-import { formatDateTime, formatRatio, formatTime, formatWeight } from "@/lib/formatting";
+import { ChartNoAxesColumnIncreasing, Gauge, Timer, Weight } from "lucide-react";
+import { BeanIcon, EntityIconFrame } from "@/components/entities/entity-icons";
+import { brewRatio } from "@/lib/calculations";
+import { formatDateTime, formatTime, formatWeight } from "@/lib/formatting";
 import type { ShotSummary } from "@/types/domain";
+import { RatioVisual, TasteBadge } from "./shot-visuals";
 
 export function ShotCard({ shot }: { shot: ShotSummary }) {
-  const provisional = shot.score_coverage !== null && shot.score_coverage < 70;
+  const ratio = brewRatio(shot.final_yield_grams, shot.dose_grams);
+
   return (
-    <Link href={`/app/shots/${shot.id}`} className="grid grid-cols-[46px_1fr_auto] items-center gap-3 rounded-[18px] border bg-white p-3.5 shadow-[0_7px_18px_rgba(54,34,24,.05)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-sm)]">
-      <div className="score-ring relative grid size-[46px] place-items-center rounded-full" style={{ "--score": shot.score ?? 0 } as React.CSSProperties}><span className="relative z-10 text-xs font-extrabold">{shot.score ?? "—"}</span></div>
-      <div className="min-w-0"><strong className="flex items-center gap-1.5 truncate text-[13px]"><BeanIcon origin={shot.beans?.origin} className="shrink-0 text-[14px] [&_svg]:size-3" /><span className="truncate">{shot.beans?.name ?? "Unbekannte Bohne"}</span></strong><span className="mt-1 block truncate text-[10px] text-[var(--dialed-text-muted)]">{formatDateTime(shot.shot_at)} · Mahlgrad {shot.grind_setting ?? "—"}</span>{provisional && <span className="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-semibold text-amber-800">Vorläufig</span>}</div>
-      <div className="text-right"><strong className="block whitespace-nowrap text-xs">{formatWeight(shot.dose_grams).replace(" g", "")} → {formatWeight(shot.final_yield_grams)}</strong><span className="mt-1 block whitespace-nowrap text-[9px] text-[var(--dialed-text-muted)]"><i className="mr-1 inline-block size-[7px] rounded-full" style={{ background: shot.taste ? TASTE_COLORS[shot.taste] : "#b8ada6" }} />{formatTime(shot.extraction_seconds)} · {formatRatio(brewRatio(shot.final_yield_grams, shot.dose_grams))}</span></div>
+    <Link href={`/app/shots/${shot.id}`} className="block rounded-[18px] border bg-white p-4 shadow-[0_7px_18px_rgba(54,34,24,.05)] transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-[var(--shadow-sm)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--dialed-crema)]">
+      <div className="grid grid-cols-[46px_minmax(0,1fr)] items-center gap-3">
+        <EntityIconFrame size="lg"><BeanIcon origin={shot.beans?.origin} className="text-[22px] [&_svg]:size-5" /></EntityIconFrame>
+        <div className="min-w-0">
+          <strong className="block truncate text-sm">{shot.beans?.name ?? "Unbekannte Bohne"}</strong>
+          <div className="mt-1 flex min-w-0 items-center justify-between gap-2">
+            <span className="min-w-0 truncate text-xs text-[var(--dialed-text-muted)]">{formatDateTime(shot.shot_at)}</span>
+            <TasteBadge taste={shot.taste} />
+          </div>
+        </div>
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t pt-3 sm:grid-cols-4">
+        <ShotMetric icon={Gauge} label="Mahlgrad" value={shot.grind_setting ?? "—"} />
+        <ShotMetric icon={Timer} label="Extraktionszeit" value={formatTime(shot.extraction_seconds)} />
+        <ShotMetric icon={Weight} label="Stop / Final" value={formatWeightPair(shot.stop_weight_grams, shot.final_yield_grams)} />
+        <div className="min-w-0">
+          <span className="flex items-center gap-1.5 text-xs text-[var(--dialed-text-muted)]"><ChartNoAxesColumnIncreasing aria-hidden="true" className="size-3.5" />Ratio</span>
+          <RatioVisual ratio={ratio} compact />
+        </div>
+      </div>
     </Link>
   );
+}
+
+function ShotMetric({ icon: Icon, label, value }: { icon: typeof Gauge; label: string; value: string }) {
+  return <div className="min-w-0">
+    <span className="flex items-center gap-1.5 text-xs text-[var(--dialed-text-muted)]"><Icon aria-hidden="true" className="size-3.5" />{label}</span>
+    <strong className="mt-1.5 block truncate text-[13px]">{value}</strong>
+  </div>;
+}
+
+function formatWeightPair(stopWeight: number | null, finalWeight: number | null) {
+  const stop = formatWeight(stopWeight).replace(" g", "");
+  const final = formatWeight(finalWeight);
+  return `${stop} / ${final}`;
 }

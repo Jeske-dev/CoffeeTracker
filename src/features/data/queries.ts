@@ -20,15 +20,14 @@ function attachBeans<T extends { bean_id: string }>(shots: T[], beans: Pick<Bean
 async function clientOr(provided?: Client) { return provided ?? createClient(); }
 
 export async function loadDashboardData(userId: string, provided?: Client) {
-  return measureServerOperation("dashboard", 6, async () => {
+  return measureServerOperation("dashboard", 5, async () => {
     const supabase = await clientOr(provided);
-    const [profile, settings, beans, shots, activeRecommendation, completedRecommendations] = await Promise.all([
+    const [profile, settings, beans, shots, activeRecommendation] = await Promise.all([
       supabase.from("profiles").select(PROFILE_COLUMNS).eq("id", userId).maybeSingle(),
       supabase.from("user_settings").select(SETTINGS_COLUMNS).eq("user_id", userId).maybeSingle(),
       supabase.from("beans").select("id,name,roaster,roast_date,origin,archived_at").eq("user_id", userId).order("updated_at", { ascending: false }),
       supabase.from("shots").select(SHOT_SUMMARY_COLUMNS).eq("user_id", userId).order("shot_at", { ascending: false }).limit(30),
       measureServerOperation("recommendation", 1, async () => supabase.from("recommendation_bundles").select(RECOMMENDATION_COLUMNS).eq("user_id", userId).eq("engine_version", RECOMMENDATION_ENGINE_VERSION).in("status", ["active", "applied"]).order("created_at", { ascending: false }).limit(1).maybeSingle()),
-      measureServerOperation("analytics", 1, async () => supabase.from("recommendation_bundles").select("primary_action,outcome,status").eq("user_id", userId).eq("status", "completed").order("created_at", { ascending: false }).limit(30)),
     ]);
     const beanRows = (beans.data ?? []) as Pick<Bean, "id" | "name" | "roaster" | "roast_date" | "origin" | "archived_at">[];
     return {
@@ -37,8 +36,7 @@ export async function loadDashboardData(userId: string, provided?: Client) {
       beans: beanRows,
       shots: attachBeans((shots.data ?? []).map((row) => toShotSummary(row as unknown as Parameters<typeof toShotSummary>[0])), beanRows) as ShotSummary[],
       activeRecommendation: activeRecommendation.data as RecommendationBundleRecord | null,
-      completedRecommendations: (completedRecommendations.data ?? []) as Pick<RecommendationBundleRecord, "primary_action" | "outcome" | "status">[],
-      error: profile.error ?? settings.error ?? beans.error ?? shots.error ?? activeRecommendation.error ?? completedRecommendations.error,
+      error: profile.error ?? settings.error ?? beans.error ?? shots.error ?? activeRecommendation.error,
     };
   });
 }
@@ -92,7 +90,7 @@ export async function loadSetupData(userId: string, provided?: Client) {
 }
 
 export async function loadNewShotData(userId: string, provided?: Client) {
-  return measureServerOperation("shots", 4, async () => {
+  return measureServerOperation("shots", 5, async () => {
     const supabase = await clientOr(provided);
     const [beans, equipment, settings, latestShot, activeRecommendation] = await Promise.all([
       supabase.from("beans").select(BEAN_COLUMNS).eq("user_id", userId).is("archived_at", null).order("updated_at", { ascending: false }),
@@ -113,19 +111,18 @@ export async function loadNewShotData(userId: string, provided?: Client) {
 }
 
 export async function loadShotDetailData(userId: string, shotId: string, provided?: Client) {
-  return measureServerOperation("shot-detail", 5, async () => {
+  return measureServerOperation("shot-detail", 4, async () => {
     const supabase = await clientOr(provided);
-    const [shot, equipment, recentShots, beans, recommendations] = await Promise.all([
+    const [shot, equipment, recentShots, beans] = await Promise.all([
       supabase.from("shots").select(SHOT_COLUMNS).eq("id", shotId).eq("user_id", userId).maybeSingle(),
       supabase.from("equipment").select("id,name,type").eq("user_id", userId),
       supabase.from("shots").select(SHOT_COLUMNS).eq("user_id", userId).order("shot_at", { ascending: false }).limit(20),
       supabase.from("beans").select("id,name,roaster,roast_date,origin").eq("user_id", userId),
-      supabase.from("recommendation_bundles").select(RECOMMENDATION_COLUMNS).eq("user_id", userId).or(`source_shot_id.eq.${shotId},resulting_shot_id.eq.${shotId}`).limit(3),
     ]);
     const beanRows = (beans.data ?? []) as Pick<Bean, "id" | "name" | "roaster" | "roast_date" | "origin">[];
     const shotRows = attachBeans((recentShots.data ?? []).map((row) => toShot(row as unknown as ShotRow)), beanRows) as ShotWithBean[];
     const current = shot.data ? attachBeans([toShot(shot.data as unknown as ShotRow)], beanRows)[0] as ShotWithBean : null;
-    return { shot: current, shots: shotRows, equipment: (equipment.data ?? []) as Pick<Equipment, "id" | "name" | "type">[], recommendations: (recommendations.data ?? []) as RecommendationBundleRecord[], error: shot.error ?? equipment.error ?? recentShots.error ?? beans.error ?? recommendations.error };
+    return { shot: current, shots: shotRows, equipment: (equipment.data ?? []) as Pick<Equipment, "id" | "name" | "type">[], error: shot.error ?? equipment.error ?? recentShots.error ?? beans.error };
   });
 }
 

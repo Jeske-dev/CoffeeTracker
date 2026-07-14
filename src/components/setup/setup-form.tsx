@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { EquipmentIcon } from "@/components/entities/entity-icons";
 import { InstallDialedCard } from "@/components/pwa/install-dialed-card";
+import { PREP_TOOLS } from "@/lib/prep-tools";
 import { saveSetup } from "@/features/data/actions";
 import { usePrivateCache } from "@/hooks/use-private-cache";
 import { usePrivateLogout } from "@/hooks/use-private-logout";
@@ -16,7 +17,7 @@ import type { Equipment, UserSettings } from "@/types/domain";
 
 type Fields = { displayName: string; machineName: string; grinderName: string; warningDays: number };
 type SetupPayload = Parameters<typeof saveSetup>[0];
-const availableTools = ["WDT", "Tamper", "Puck Screen", "Leveler", "Papierfilter"];
+const availableTools = PREP_TOOLS;
 
 function isValidSetup(payload: SetupPayload) {
   return payload.displayName.trim().length >= 2

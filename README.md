@@ -1,13 +1,13 @@
 # Dialed
 
-Dialed ist ein mobile-first Brew Journal für Siebträger-Espresso. Ein Shot wird in drei kurzen Schritten dokumentiert: Setup, Extraktion mit Live-Timer und sensorisches Review. Dashboard, Sweet-Spot-Analyse und nachvollziehbare Dial-in-Hinweise helfen dabei, gute Rezepte reproduzierbar zu machen.
+Dialed ist ein mobile-first Brew Journal für Siebträger-Espresso. Ein Shot wird in drei kurzen Schritten dokumentiert: Rezept, Extraktion und sensorische Bewertung. Dashboard, Mahlgrad-Zeit-Verlauf und kompakte Zielwerte helfen dabei, gute Rezepte reproduzierbar zu machen.
 
 ## Techstack
 
 - Next.js 16, React 19, TypeScript und App Router
 - Tailwind CSS 4 und shadcn/ui
 - React Hook Form und Zod
-- Recharts für die Sweet-Spot-Visualisierung
+- Recharts für den Mahlgrad-Zeit-Verlauf
 - Supabase Postgres, Supabase Auth und `@supabase/ssr`
 - Vitest, Testing Library und Playwright
 - Vercel als Hosting-Ziel
@@ -102,7 +102,7 @@ Playwright benötigt einmalig Browser-Binaries (`npx playwright install chromium
 
 ## Vereinfachtes Shot-Tracking
 
-Der normale Flow besteht aus **Setup**, **Extraktion** und **Bewertung**. Erfasst werden nur noch Bohne, Maschine/Mühle/Sieb, Mahlgrad, Dosis, WDT, Puck Screen, Zeit, finales Gewicht, optionales Stop-Gewicht, 1–5-Bewertung, Sauer-Bitter-Balance, dreistufiges Extraktionsbild, Puck-Zustand und eine optionale Notiz. Maschine, Mühle, Bohne und letzte Rezeptwerte werden sinnvoll vorausgefüllt.
+Der normale Flow besteht aus **Rezept**, **Extraktion** und **Bewertung**. Erfasst werden Bohne, Mahlgrad, Dosis, die in den Einstellungen verfügbaren Puck-Prep-Werkzeuge, Zeit, finales Gewicht, optionales Stop-Gewicht, eine fünfstufige Sauer-Bitter-Einordnung, das dreistufige Extraktionsbild, der Puck-Zustand und eine optionale Notiz. Maschine, Mühle und Sieb werden im Wizard nur als aktuelles Setup angezeigt und in den Einstellungen geändert. Die Extraktion zeigt Gewichtsverlauf und Brew Ratio ohne integrierten Timer.
 
 Nicht mehr Teil des Shot-Modells sind Tamp-Ausrichtung, erster Tropfen, Druck, Stärke, detaillierte Flow-Diagnosen, Spritzen, Blonding, Puck-Schäden, Astringenz und die früheren Detailbewertungen für Süße, Säure, Bitterkeit, Körper, Klarheit, Aroma und Nachgeschmack. Die Datenbankspalten bleiben für historische Zeilen erhalten, sind nullable und werden für neue Shots weder geschrieben noch ausgewertet. `src/features/data/normalize.ts` bildet Datenbankzeilen ausdrücklich auf das kleinere App-Domain-Modell ab.
 
@@ -114,7 +114,7 @@ Neue und bearbeitete Shots verwenden `2.0.0-simple`. Der Score ist das gewichtet
 
 Die transparente Regel-Engine erzeugt höchstens eine Hauptänderung. Sie priorisiert gute Shots und Channeling, danach sauer/schnell → feiner, bitter/langsam → gröber, sauer beziehungsweise bitter bei passender Zeit → Zielgewicht anpassen und Dosisänderungen nur bei verletzter Siebkapazität. Ohne Geschmack sind rein technische Tipps als niedrig sicher markiert. Der maschinenspezifische Nachlauf kann zusätzlich ein operatives Stop-Gewicht liefern; Puck-Zustand und entfernte Legacy-Diagnosen lösen keine Rezeptänderung aus.
 
-Ein aktiver Tipp erscheint nach dem Quick Start auf dem Dashboard. Er lässt sich nutzerbezogen wegklicken oder über **Shot mit Tipp starten** übernehmen. Dabei wird genau das betroffene Feld im normalen Wizard markiert; bei einem normalen Start bleibt der Wert unverändert und kann direkt am Feld übernommen oder ausgeblendet werden. Detail- und Bearbeitungsansicht verwenden dieselben drei Shot-Sections aus `src/components/shots/shot-sections.tsx`; Speichern berechnet Score 2 neu und regeneriert die Empfehlung.
+Das Dashboard zeigt aus der Regel-Engine nur drei kompakte Zielwerte für den nächsten Shot: Dosis, Mahlgrad und Stop-Gewicht. Im Wizard erscheinen abweichende Zielwerte direkt und zurückhaltend unter dem passenden Feld; Eingaben werden nie automatisch verändert. Allgemeine Tippkarten sind nicht Teil des normalen Flows. Detail- und Bearbeitungsansicht verwenden dieselben Shot-Sections aus `src/components/shots/shot-sections.tsx`; Speichern berechnet intern Score 2 neu und regeneriert die nächste Empfehlung.
 
 ## Vercel Deployment
 

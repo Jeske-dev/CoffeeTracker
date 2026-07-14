@@ -1,4 +1,4 @@
-import { CircleDot, Coffee, Settings2, Sprout, Wrench, type LucideIcon } from "lucide-react";
+import { Bean as BeanGlyph, CircleDot, Coffee, Settings2, Wrench, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { flagForOrigin } from "@/lib/country-flags";
 import type { Bean, Equipment, EquipmentType } from "@/types/domain";
@@ -33,7 +33,7 @@ export function BeanIcon({ origin, className }: { origin?: string | null; classN
   if (flag) {
     return <span role="img" aria-label={`Flagge ${origin}`} data-entity-icon="bean-flag" className={cn("inline-grid place-items-center text-[18px] leading-none", className)}>{flag}</span>;
   }
-  return <span role="img" aria-label="Bohne" data-entity-icon="bean" className={cn("inline-grid place-items-center [&_svg]:size-4", className)}><Sprout aria-hidden="true" /></span>;
+  return <span role="img" aria-label="Bohne" data-entity-icon="bean" className={cn("inline-grid place-items-center [&_svg]:size-4", className)}><BeanGlyph aria-hidden="true" /></span>;
 }
 
 export function EquipmentIcon({ type, className }: { type: EquipmentType; className?: string }) {

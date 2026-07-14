@@ -1,1 +1,12 @@
-import{Skeleton}from"@/components/ui/skeleton";export default function Loading(){return <div className="space-y-3"><Skeleton className="h-14 w-full rounded-2xl"/>{Array.from({length:6},(_,i)=><Skeleton key={i} className="h-[76px] w-full rounded-[18px]"/>)}</div>}
+import { Skeleton } from "@/components/ui/skeleton";
+
+export default function Loading() {
+  return <div>
+    <header className="mb-5 flex items-center justify-between">
+      <div className="space-y-2"><Skeleton className="h-9 w-44" /><Skeleton className="h-3 w-24" /></div>
+      <Skeleton className="size-11 rounded-full" />
+    </header>
+    <div className="mb-3 flex justify-end"><Skeleton className="h-[52px] w-[98px] rounded-[12px]" /></div>
+    <div className="grid gap-2.5">{Array.from({ length: 4 }, (_, item) => <Skeleton key={item} className="h-[210px] w-full rounded-[18px] sm:h-[164px]" />)}</div>
+  </div>;
+}

@@ -1,20 +1,17 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ShotWizard } from "./shot-wizard";
 import type { Bean, Equipment, RecommendationBundleRecord, Shot, UserSettings } from "@/types/domain";
 
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
+  replace: vi.fn(),
   refresh: vi.fn(),
   saveShot: vi.fn(),
-  applyRecommendation: vi.fn().mockResolvedValue({ ok: true, message: "ok" }),
-  dismissRecommendation: vi.fn().mockResolvedValue({ ok: true, message: "ok" }),
 }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push, refresh: mocks.refresh }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push, replace: mocks.replace, refresh: mocks.refresh }) }));
 vi.mock("@/features/data/actions", () => ({
   saveShot: mocks.saveShot,
-  applyRecommendation: mocks.applyRecommendation,
-  dismissRecommendation: mocks.dismissRecommendation,
 }));
 vi.mock("sonner", () => ({ toast: { info: vi.fn(), success: vi.fn(), error: vi.fn() } }));
 
@@ -64,10 +61,19 @@ describe("vereinfachter ShotWizard", () => {
 
   it("zeigt keine entfernten Diagnosefelder", () => {
     render(<ShotWizard userId="user-1" beans={[bean]} equipment={[machine, grinder]} settings={settings} lastShot={lastShot} />);
-    expect(screen.queryByText(/Tamp/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Druck/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/erster Tropfen/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Temperatur/i)).not.toBeInTheDocument();
+  });
+
+  it("zeigt alle Puck-Prep-Werkzeuge aus den Einstellungen als Schalter", () => {
+    render(<ShotWizard userId="user-1" beans={[bean]} equipment={[machine, grinder]} settings={settings} lastShot={lastShot} />);
+    for (const tool of ["WDT", "Tamper", "Puck Screen", "Leveler", "Papierfilter"]) {
+      expect(screen.getByRole("button", { name: tool })).toBeInTheDocument();
+    }
+    expect(screen.getByRole("button", { name: "Tamper" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Leveler" }));
+    expect(screen.getByRole("button", { name: "Leveler" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("füllt letzte Bohne, Maschine und Mühle voraus", () => {
@@ -78,6 +84,8 @@ describe("vereinfachter ShotWizard", () => {
     expect(screen.getByText("Test Mühle")).toBeInTheDocument();
     expect(container.querySelector('[data-entity-icon="machine"]')).toBeInTheDocument();
     expect(container.querySelector('[data-entity-icon="grinder"]')).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Setup ändern/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "In den Einstellungen ändern" })).toHaveAttribute("href", "/app/setup");
   });
 
   it("öffnet nach Extraktion die vereinfachte Bewertung, ohne zu speichern", async () => {
@@ -93,35 +101,15 @@ describe("vereinfachter ShotWizard", () => {
     await waitFor(() => expect(localStorage.getItem("dialed:shot-draft:user-1")).not.toBeNull());
   });
 
-  it("führt den Timer über einen gespeicherten Startzeitpunkt und erlaubt weiterhin manuelle Zeit", async () => {
-    let frame: FrameRequestCallback | undefined;
-    const requestFrame = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
-      frame = callback;
-      return 1;
-    });
-    const cancelFrame = vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => undefined);
-    const now = vi.spyOn(Date, "now").mockReturnValue(1_000);
-
+  it("zeigt Gewichtsverlauf und Ratio ohne Timer", async () => {
     render(<ShotWizard userId="user-1" beans={[bean]} equipment={[]} settings={null} lastShot={null} />);
     fireEvent.click(screen.getByRole("button", { name: "Weiter" }));
     expect((await screen.findAllByRole("heading", { name: "Extraktion" })).length).toBeGreaterThan(0);
-
-    fireEvent.click(screen.getByRole("button", { name: "Timer starten" }));
-    await waitFor(() => expect(frame).toBeDefined());
-    expect(JSON.parse(localStorage.getItem("dialed:shot-timer:user-1") ?? "null")).toEqual({ startedAt: 1_000, baseMs: 0 });
-
-    now.mockReturnValue(3_500);
-    act(() => frame?.(0));
-    expect(screen.getByRole("spinbutton", { name: "Extraktionszeit" })).toHaveValue(2.5);
-
-    fireEvent.click(screen.getByRole("button", { name: "Timer stoppen" }));
-    fireEvent.change(screen.getByRole("spinbutton", { name: "Extraktionszeit" }), { target: { value: "29.5" } });
-    expect(screen.getByRole("spinbutton", { name: "Extraktionszeit" })).toHaveValue(29.5);
-    expect(localStorage.getItem("dialed:shot-timer:user-1")).toBeNull();
-
-    requestFrame.mockRestore();
-    cancelFrame.mockRestore();
-    now.mockRestore();
+    expect(screen.queryByRole("button", { name: /Timer/i })).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/Gewichtsverlauf:/)).toBeInTheDocument();
+    expect(screen.getByText("Brew Ratio")).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: "Stop-Gewicht" })).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: "Finales Getränkgewicht" })).toBeInTheDocument();
   });
 
   it("behält den Entwurf offline und deaktiviert das Speichern", async () => {
@@ -135,18 +123,27 @@ describe("vereinfachter ShotWizard", () => {
     expect(await screen.findByRole("button", { name: "Offline – Entwurf bleibt erhalten" })).toBeDisabled();
   });
 
-  it("übernimmt einen Dashboard-Tipp sichtbar und lässt ihn rückgängig machen", async () => {
-    render(<ShotWizard userId="user-1" beans={[bean]} equipment={[machine, grinder]} settings={settings} lastShot={lastShot} recommendation={recommendation} recommendationMode="apply" />);
-    expect(await screen.findByDisplayValue("4")).toBeInTheDocument();
-    expect(screen.getByText("Tipp")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Tipp rückgängig" }));
-    expect(screen.getByDisplayValue("5")).toBeInTheDocument();
+  it("zeigt Zielwerte leise an, ohne Eingaben automatisch zu ändern", async () => {
+    render(<ShotWizard userId="user-1" beans={[bean]} equipment={[machine, grinder]} settings={settings} lastShot={lastShot} recommendation={{ ...recommendation, status: "active" }} />);
+    expect(await screen.findByDisplayValue("5")).toBeInTheDocument();
+    expect(screen.getByLabelText("Zielwert aus deinen letzten Shots: 4")).toHaveTextContent("Ziel: 4");
+    expect(screen.queryByRole("button", { name: "Übernehmen" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ausblenden" })).not.toBeInTheDocument();
   });
 
-  it("ändert bei normalem Start den empfohlenen Wert nicht unbemerkt", async () => {
-    render(<ShotWizard userId="user-1" beans={[bean]} equipment={[machine, grinder]} settings={settings} lastShot={lastShot} recommendation={{ ...recommendation, status: "active" }} recommendationMode="suggest" />);
-    expect(await screen.findByDisplayValue("5")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Übernehmen" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Ausblenden" })).toBeInTheDocument();
+  it("nutzt fünf Geschmacksstufen und öffnet nach dem Speichern das Dashboard", async () => {
+    mocks.saveShot.mockResolvedValue({ ok: true, message: "gespeichert", id: "66666666-6666-4666-8666-666666666666", score: 88, coverage: 100 });
+    render(<ShotWizard userId="user-1" beans={[bean]} equipment={[machine, grinder]} settings={settings} lastShot={lastShot} />);
+    fireEvent.click(screen.getByRole("button", { name: "Weiter" }));
+    await screen.findByRole("spinbutton", { name: "Extraktionszeit" });
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Extraktionszeit" }), { target: { value: "29" } });
+    fireEvent.click(screen.getByRole("button", { name: "Weiter" }));
+    for (const taste of ["Zu sauer", "Leicht sauer", "Ausgewogen", "Leicht bitter", "Zu bitter"]) {
+      expect(await screen.findByRole("button", { name: taste })).toBeInTheDocument();
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Ausgewogen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Shot speichern" }));
+    await waitFor(() => expect(mocks.saveShot).toHaveBeenCalledWith(expect.objectContaining({ taste: "balanced", overallTasteRating: 5 })));
+    await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/app"));
   });
 });
