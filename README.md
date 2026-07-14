@@ -52,7 +52,7 @@ npx supabase start
 npx supabase db reset
 ```
 
-Die Migration [20260713000000_dialed_schema.sql](supabase/migrations/20260713000000_dialed_schema.sql) erstellt Enums, Profile, Bohnen, Equipment, Settings und Shots. Sie enthält Indizes, `updated_at`-Trigger, einen sicheren Auth-Trigger, Ownership-Prüfungen sowie RLS-Policies für jede öffentliche Nutzertabelle.
+Die Migration [20260713000000_dialed_schema.sql](supabase/migrations/20260713000000_dialed_schema.sql) erstellt Enums, Profile, Bohnen, Equipment, Settings und Shots. Sie enthält Indizes, `updated_at`-Trigger, einen sicheren Auth-Trigger, Ownership-Prüfungen sowie RLS-Policies für jede öffentliche Nutzertabelle. [20260713060000_simple_shot_scoring.sql](supabase/migrations/20260713060000_simple_shot_scoring.sql) ergänzt Score-Version 2, das explizite Starter-Rezept und lockert die Constraints der nun optionalen beziehungsweise historischen Shot-Felder.
 
 Aktuelle Datenbanktypen regenerieren:
 
@@ -100,15 +100,21 @@ npm run build
 
 Playwright benötigt einmalig Browser-Binaries (`npx playwright install chromium`). Der Auth-Smoke-Test läuft ohne echtes Konto; ein vollständiger persistenter E2E-Flow benötigt ein isoliertes Supabase-Testprojekt und dessen Environment Variables.
 
-## Score-Logik
+## Vereinfachtes Shot-Tracking
 
-Der Score ist ausdrücklich eine motivierende Heuristik, keine wissenschaftliche Messung. Er startet bei 100 und zieht nachvollziehbare Abweichungen von 28 Sekunden und einem Brew Ratio von 1:1,95 sowie Geschmack, Flow und Puck-Zustand ab. Das Ergebnis wird auf 45–98 begrenzt. Der Client zeigt eine Live-Vorschau; beim Speichern berechnet der Server den Score erneut und ignoriert Clientwerte.
+Der normale Flow besteht aus **Setup**, **Extraktion** und **Bewertung**. Erfasst werden nur noch Bohne, Maschine/Mühle/Sieb, Mahlgrad, Dosis, WDT, Puck Screen, Zeit, finales Gewicht, optionales Stop-Gewicht, 1–5-Bewertung, Sauer-Bitter-Balance, dreistufiges Extraktionsbild, Puck-Zustand und eine optionale Notiz. Maschine, Mühle, Bohne und letzte Rezeptwerte werden sinnvoll vorausgefüllt.
 
-Der Standard-Sweet-Spot liegt bei 25–32 Sekunden und einem Ratio von 1:1,80–1:2,15.
+Nicht mehr Teil des Shot-Modells sind Tamp-Ausrichtung, erster Tropfen, Druck, Stärke, detaillierte Flow-Diagnosen, Spritzen, Blonding, Puck-Schäden, Astringenz und die früheren Detailbewertungen für Süße, Säure, Bitterkeit, Körper, Klarheit, Aroma und Nachgeschmack. Die Datenbankspalten bleiben für historische Zeilen erhalten, sind nullable und werden für neue Shots weder geschrieben noch ausgewertet. `src/features/data/normalize.ts` bildet Datenbankzeilen ausdrücklich auf das kleinere App-Domain-Modell ab.
+
+## Score 2
+
+Neue und bearbeitete Shots verwenden `2.0.0-simple`. Der Score ist das gewichtete geometrische Mittel aus Geschmack (50 %), Rezepttreue (35 %), Extraktionsbild (10 %) und automatisch ermittelter Konsistenz (5 %). Geschmack nutzt nur Gesamtbewertung und Balance; Rezepttreue nur Brew Ratio, Zeit und Dosis. Fehlende Teilwerte werden ausgelassen und niemals als null Punkte gewertet. Ein vollständiger Score benötigt Dosis, finales Gewicht, Zeit und mindestens eine Geschmacksangabe; die getrennte Datenabdeckung zeigt transparent, wie belastbar das Ergebnis ist.
 
 ## Dial-in-Empfehlungen
 
-Die Regel-Engine priorisiert sichtbares Channeling vor Mahlgradänderungen. Danach folgen sauer/schnell → feiner, sauer bei normaler Zeit → Temperatur erhöhen, bitter/langsam → gröber, bitter bei hohem Ratio → früher stoppen und hoher Nachlauf → Stop-Ziel vorziehen. Balancierte, stabile Shots werden als Referenz empfohlen. Es gibt keine KI-Abhängigkeit.
+Die transparente Regel-Engine erzeugt höchstens eine Hauptänderung. Sie priorisiert gute Shots und Channeling, danach sauer/schnell → feiner, bitter/langsam → gröber, sauer beziehungsweise bitter bei passender Zeit → Zielgewicht anpassen und Dosisänderungen nur bei verletzter Siebkapazität. Ohne Geschmack sind rein technische Tipps als niedrig sicher markiert. Der maschinenspezifische Nachlauf kann zusätzlich ein operatives Stop-Gewicht liefern; Puck-Zustand und entfernte Legacy-Diagnosen lösen keine Rezeptänderung aus.
+
+Ein aktiver Tipp erscheint nach dem Quick Start auf dem Dashboard. Er lässt sich nutzerbezogen wegklicken oder über **Shot mit Tipp starten** übernehmen. Dabei wird genau das betroffene Feld im normalen Wizard markiert; bei einem normalen Start bleibt der Wert unverändert und kann direkt am Feld übernommen oder ausgeblendet werden. Detail- und Bearbeitungsansicht verwenden dieselben drei Shot-Sections aus `src/components/shots/shot-sections.tsx`; Speichern berechnet Score 2 neu und regeneriert die Empfehlung.
 
 ## Vercel Deployment
 

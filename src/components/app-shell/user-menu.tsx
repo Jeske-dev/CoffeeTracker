@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CalendarDays, LogOut, Mail, UserRound } from "lucide-react";
+import { usePrivateLogout } from "@/hooks/use-private-logout";
 
 type UserMenuProps = {
   displayName: string;
@@ -12,6 +13,7 @@ type UserMenuProps = {
 export function UserMenu({ displayName, email, registeredLabel }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const logout = usePrivateLogout();
   const rootRef = useRef<HTMLDivElement>(null);
   const initial = displayName.charAt(0).toUpperCase() || "D";
 
@@ -33,8 +35,11 @@ export function UserMenu({ displayName, email, registeredLabel }: UserMenuProps)
 
   const signOut = async () => {
     setSigningOut(true);
-    await fetch("/auth/signout", { method: "POST" });
-    window.location.assign("/auth/login");
+    try {
+      await logout();
+    } finally {
+      setSigningOut(false);
+    }
   };
 
   return <div className="relative z-40" ref={rootRef}>

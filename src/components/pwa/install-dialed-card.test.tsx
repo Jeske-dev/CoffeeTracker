@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PwaInstallationProvider } from "@/hooks/use-pwa-installation";
@@ -10,8 +11,8 @@ function setDevice({ standalone = false, ios = false }: { standalone?: boolean; 
   Object.defineProperty(navigator, "maxTouchPoints", { configurable: true, value: ios ? 5 : 0 });
 }
 
-function renderCard(props: { variant: "dashboard" | "settings"; shotCount?: number }) {
-  return render(<PwaInstallationProvider><InstallDialedCard {...props} /></PwaInstallationProvider>);
+function renderCard() {
+  return render(<PwaInstallationProvider><InstallDialedCard /></PwaInstallationProvider>);
 }
 
 describe("InstallDialedCard", () => {
@@ -29,42 +30,36 @@ describe("InstallDialedCard", () => {
 
   it("öffnet den nativen Dialog erst nach dem Klick", async () => {
     const prompt = vi.fn().mockResolvedValue(undefined);
-    renderCard({ variant: "dashboard", shotCount: 2 });
+    renderCard();
     const event = new Event("beforeinstallprompt", { cancelable: true });
     Object.assign(event, { prompt, userChoice: Promise.resolve({ outcome: "accepted", platform: "web" }) });
     act(() => window.dispatchEvent(event));
 
-    const button = await screen.findByRole("button", { name: "App installieren" });
+    const button = await screen.findByRole("button", { name: "Dialed installieren" });
     expect(prompt).not.toHaveBeenCalled();
     fireEvent.click(button);
     await waitFor(() => expect(prompt).toHaveBeenCalledOnce());
-    await waitFor(() => expect(screen.queryByText("Dialed als App nutzen")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Dialed ist auf diesem Gerät installiert.")).toBeInTheDocument());
   });
 
   it("zeigt unter iOS nur die manuelle Anleitung", async () => {
     setDevice({ ios: true });
-    renderCard({ variant: "dashboard", shotCount: 2 });
-    fireEvent.click(await screen.findByRole("button", { name: "So geht’s" }));
+    renderCard();
+    fireEvent.click(await screen.findByRole("button", { name: "iOS-Anleitung" }));
     expect(await screen.findByText("Tippe in Safari auf „Teilen“." )).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "App installieren" })).not.toBeInTheDocument();
   });
 
-  it("erscheint nicht im Standalone-Modus", async () => {
+  it("zeigt in den Einstellungen den installierten Status", async () => {
     setDevice({ standalone: true });
-    renderCard({ variant: "dashboard", shotCount: 2 });
-    await waitFor(() => expect(screen.queryByText("Dialed als App nutzen")).not.toBeInTheDocument());
+    renderCard();
+    expect(await screen.findByText("Dialed ist auf diesem Gerät installiert.")).toBeInTheDocument();
+    expect(screen.getByText("App-Version")).toBeInTheDocument();
   });
 
-  it("respektiert Später, bleibt in den Einstellungen aber verfügbar", async () => {
-    const first = renderCard({ variant: "dashboard", shotCount: 2 });
-    fireEvent.click(await screen.findByRole("button", { name: "Später" }));
-    first.unmount();
-
-    renderCard({ variant: "dashboard", shotCount: 2 });
-    await waitFor(() => expect(screen.queryByText("Dialed als App nutzen")).not.toBeInTheDocument());
-
-    renderCard({ variant: "settings" });
-    expect(await screen.findByText("App-Version")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Installationsanleitung" })).toBeInTheDocument();
+  it("wird nicht mehr auf dem Dashboard eingebunden", () => {
+    const dashboard = readFileSync("src/app/app/page.tsx", "utf8");
+    expect(dashboard).not.toContain("InstallDialedCard");
+    expect(dashboard).not.toContain("Dialed als App nutzen");
   });
 });

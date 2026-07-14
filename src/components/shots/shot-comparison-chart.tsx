@@ -20,7 +20,7 @@ export function ShotComparisonChart({ shot, shots }: { shot: ShotWithBean; shots
   const currentRatio = brewRatio(shot.final_yield_grams, shot.dose_grams);
   if (shot.extraction_seconds === null || currentRatio === null) return <EmptyChart text="Für den Vergleich fehlen Zeit, Dosis oder Yield." />;
 
-  const candidates = shots.filter((item) => item.id !== shot.id && item.extraction_seconds !== null && item.final_yield_grams !== null && item.dose_grams !== null && item.bean_id === shot.bean_id && item.machine_id === shot.machine_id && item.grinder_id === shot.grinder_id && item.basket_id === shot.basket_id && shot.dose_grams !== null && Math.abs(item.dose_grams - shot.dose_grams) <= 0.5 && JSON.stringify(item.target_recipe_snapshot ?? null) === JSON.stringify(shot.target_recipe_snapshot ?? null) && (item.channeling_severity ?? 0) < 3 && (item.spraying_severity ?? 0) < 3);
+  const candidates = shots.filter((item) => item.id !== shot.id && item.extraction_seconds !== null && item.final_yield_grams !== null && item.dose_grams !== null && item.bean_id === shot.bean_id && item.machine_id === shot.machine_id && item.grinder_id === shot.grinder_id && item.basket_id === shot.basket_id && shot.dose_grams !== null && Math.abs(item.dose_grams - shot.dose_grams) <= 0.5 && JSON.stringify(item.target_recipe_snapshot ?? null) === JSON.stringify(shot.target_recipe_snapshot ?? null) && item.flow !== "channeling");
   const nearest = candidates.slice(0, 10);
   const peers: Point[] = nearest.map(toPoint).filter(Boolean) as Point[];
   const current: Point = { id: shot.id, date: formatDate(shot.shot_at), name: shot.beans?.name ?? "Dieser Shot", time: shot.extraction_seconds, ratio: currentRatio, score: shot.score, taste: shot.taste ?? "unknown", current: true };

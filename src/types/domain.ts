@@ -1,8 +1,8 @@
 export type BeanProcess = "washed" | "natural" | "honey" | "anaerobic" | "unknown";
 export type RoastLevel = "light" | "medium_light" | "medium" | "dark";
 export type EquipmentType = "machine" | "grinder" | "basket" | "tool";
-export type ShotTaste = "very_sour" | "sour" | "balanced" | "bitter" | "very_bitter";
-export type ShotFlow = "even" | "minor_channeling" | "channeling" | "spritzing";
+export type ShotTaste = "sour" | "balanced" | "bitter";
+export type ShotFlow = "even" | "minor_channeling" | "channeling";
 export type PuckState = "dry" | "ideal" | "wet" | "stuck";
 export type GrindScaleType = "stepped" | "stepless";
 export type FinerDirection = "higher" | "lower";
@@ -28,23 +28,23 @@ export type Equipment = {
 export type Shot = {
   id: string; user_id: string; bean_id: string; machine_id: string | null; grinder_id: string | null;
   basket_id: string | null; shot_at: string; grind_setting: string | null; dose_grams: number | null;
-  temperature_c: number | null; preinfusion_seconds: number | null; prep_tools: string[] | null;
-  extraction_seconds: number | null; stop_weight_grams: number | null; final_yield_grams: number | null;
-  taste: ShotTaste | null; flow: ShotFlow | null; puck: PuckState | null; notes: string | null; score: number | null;
-  overall_taste_rating: number | null; tds: number | null; flow_evenness: number | null; channeling: boolean | null;
-  target_recipe_snapshot?: Record<string, unknown> | null; first_drop_seconds?: number | null; pressure_bar?: number | null;
-  taste_balance?: number | null; sweetness?: number | null; acidity_quality?: number | null; bitterness_quality?: number | null;
-  body_rating?: number | null; clarity_rating?: number | null; aroma_rating?: number | null; aftertaste_rating?: number | null;
-  astringency_severity?: number | null; channeling_severity?: number | null; spraying_severity?: number | null;
-  flow_evenness_rating?: number | null; early_blonding_severity?: number | null; puck_damage_severity?: number | null;
-  shower_screen_imprint?: boolean | null; puck_screen_imprint?: boolean | null; strength_perception?: number | null;
-  tamp_level?: "level" | "slanted" | null; applied_recommendation_id?: string | null; recommendation_applied?: boolean | null;
-  recommendation_changes?: Record<string, unknown>[] | null; experiment_mode?: boolean;
+  prep_tools: string[] | null; extraction_seconds: number | null; stop_weight_grams: number | null;
+  final_yield_grams: number | null; taste: ShotTaste | null; flow: ShotFlow | null;
+  puck: PuckState | null; notes: string | null; score: number | null; overall_taste_rating: number | null;
+  target_recipe_snapshot: Record<string, unknown> | null; applied_recommendation_id: string | null;
+  recommendation_applied: boolean | null; recommendation_changes: Record<string, unknown>[] | null;
+  experiment_mode: boolean; scoring_version: string | null;
   score_coverage: number | null; score_status: "Geringe Aussagekraft" | "Vorläufig" | "Aussagekräftig" | "Sehr detailliert" | null;
   created_at: string; updated_at: string;
 };
 
-export type ShotWithBean = Shot & { beans: Pick<Bean, "id" | "name" | "roaster" | "roast_date"> | null };
+export type ShotWithBean = Shot & { beans: Pick<Bean, "id" | "name" | "roaster" | "roast_date" | "origin"> | null };
+
+export type ShotSummary = Pick<Shot,
+  "id" | "bean_id" | "machine_id" | "grinder_id" | "basket_id" | "shot_at" | "grind_setting" |
+  "dose_grams" | "extraction_seconds" | "stop_weight_grams" | "final_yield_grams" | "taste" | "flow" |
+  "score" | "score_coverage" | "target_recipe_snapshot" | "scoring_version"
+> & { beans: Pick<Bean, "id" | "name" | "roaster" | "roast_date" | "origin"> | null };
 
 export type UserSettings = {
   user_id: string; default_machine_id: string | null; default_grinder_id: string | null;

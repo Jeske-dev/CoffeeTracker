@@ -1,45 +1,74 @@
 import { describe, expect, it } from "vitest";
-import { calculateDialedScore } from ".";
+import { calculateDialedScore, type DialedScoreInput } from ".";
 
-const complete = { doseGrams: 19, finalYieldGrams: 36, extractionSeconds: 28, tasteBalance: "balanced" as const, flow: "even" as const, puck: "ideal" as const };
+const target = { doseGrams: 18, targetYieldGrams: 36, targetExtractionTimeSeconds: 30 };
+const complete: DialedScoreInput = {
+  doseGrams: 18,
+  finalYieldGrams: 36,
+  extractionSeconds: 30,
+  overallTasteRating: 5,
+  tasteBalance: "balanced",
+  extractionPicture: "even",
+  targetRecipe: target,
+};
 
-describe("Dialed Score mit Teil-Scores", () => {
-  it("behandelt fehlende einzelne Messwerte als nicht vorhanden", () => {
-    const result = calculateDialedScore({ ...complete, extractionSeconds: null });
-    expect(result.score).toBeNull();
-    expect(result.components.recipe.score).not.toBeNull();
-    expect(result.components.recipe.coverage).toBe(60);
-  });
-  it("lässt vollständig fehlende Teil-Scores auf null", () => {
-    const result = calculateDialedScore({ doseGrams: null, finalYieldGrams: null, extractionSeconds: null });
-    expect(result.score).toBeNull();
-    expect(result.components.sensory.score).toBeNull();
-    expect(result.components.recipe.score).toBeNull();
-    expect(result.components.flowPuck.score).toBeNull();
-  });
-  it("normalisiert die Gewichte nur über vorhandene Komponenten", () => {
-    const result = calculateDialedScore({ ...complete, previousComparableScores: [80, 90, 100] });
-    expect(result.score).toBeGreaterThan(0);
-    expect(result.components.consistency.score).toBe(90);
-  });
-  it("berechnet den Gesamtscore erst mit den Mindestdaten", () => {
-    expect(calculateDialedScore({ doseGrams: 19, finalYieldGrams: 36, extractionSeconds: 28 }).score).toBeNull();
-    expect(calculateDialedScore({ ...complete }).score).not.toBeNull();
-  });
-  it("berechnet Rezeptwert ohne TDS und ohne historische Shots", () => {
+describe("Dialed Score 2.0.0-simple", () => {
+  it("berechnet mit allen vereinfachten Kernfeldern einen vollständigen Score", () => {
     const result = calculateDialedScore(complete);
-    expect(result.components.recipe.score).not.toBeNull();
-    expect(result.components.chemistry.score).toBeNull();
-    expect(result.components.consistency.score).toBeNull();
+    expect(result.score).toBe(100);
+    expect(result.complete).toBe(true);
+    expect(result.coverage).toBe(100);
   });
-  it("führt die Core-Datenabdeckung getrennt vom Score", () => {
+
+  it("verwendet für Geschmack nur Rating und Balance", () => {
     const result = calculateDialedScore({ ...complete, overallTasteRating: 4 });
-    expect(result.coverage).toBeGreaterThan(0);
-    expect(result.coverage).toBeLessThanOrEqual(100);
-    expect(result.coverageLabel).toBeTruthy();
+    expect(result.components.taste.score).toBe(87);
   });
-  it("erfordert Flow oder Channeling für FlowPuckScore", () => {
-    expect(calculateDialedScore({ ...complete, flow: null, puck: null }).components.flowPuck.score).toBeNull();
-    expect(calculateDialedScore({ ...complete, flow: null, puck: null, channeling: false }).components.flowPuck.score).not.toBeNull();
+
+  it("verwendet für Rezepttreue nur Ratio, Zeit und Dosis", () => {
+    const exact = calculateDialedScore(complete).components.recipe.score;
+    const changedTaste = calculateDialedScore({ ...complete, overallTasteRating: 1, tasteBalance: "bitter", extractionPicture: "channeling" }).components.recipe.score;
+    expect(exact).toBe(100);
+    expect(changedTaste).toBe(100);
+  });
+
+  it("mappt das Extraktionsbild auf die einfache Dreierauswahl", () => {
+    expect(calculateDialedScore({ ...complete, extractionPicture: "even" }).components.extractionPicture.score).toBe(100);
+    expect(calculateDialedScore({ ...complete, extractionPicture: "minor_channeling" }).components.extractionPicture.score).toBe(70);
+    expect(calculateDialedScore({ ...complete, extractionPicture: "channeling" }).components.extractionPicture.score).toBe(25);
+  });
+
+  it("lässt fehlende Werte aus, statt sie als null Punkte zu werten", () => {
+    const result = calculateDialedScore({ ...complete, extractionSeconds: null, extractionPicture: null });
+    expect(result.components.recipe.score).toBe(100);
+    expect(result.components.recipe.coverage).toBe(65);
+    expect(result.components.extractionPicture.score).toBeNull();
+  });
+
+  it("erzeugt ohne Geschmack keinen vollständigen Gesamtscore", () => {
+    const result = calculateDialedScore({ ...complete, overallTasteRating: null, tasteBalance: null });
+    expect(result.score).toBeNull();
+    expect(result.missingTasteEvaluation).toBe(true);
+  });
+
+  it("berechnet Konsistenz automatisch ab drei vergleichbaren Shots", () => {
+    const previousComparableShots = [
+      { doseGrams: 18, finalYieldGrams: 36, extractionSeconds: 30 },
+      { doseGrams: 18.1, finalYieldGrams: 36.2, extractionSeconds: 29.8 },
+      { doseGrams: 17.9, finalYieldGrams: 35.8, extractionSeconds: 30.2 },
+    ];
+    const result = calculateDialedScore({ ...complete, previousComparableShots });
+    expect(result.components.consistency.score).toBeGreaterThanOrEqual(98);
+  });
+
+  it("ignoriert Legacy-Werte vollständig", () => {
+    const withLegacy = { ...complete, pressureBar: 3, tampLevel: "slanted", astringencySeverity: 4, tds: 9 } as DialedScoreInput;
+    expect(calculateDialedScore(withLegacy)).toEqual(calculateDialedScore(complete));
+  });
+
+  it("berechnet die Datenabdeckung nur aus sechs Kernfeldern", () => {
+    expect(calculateDialedScore(complete).coverage).toBe(100);
+    expect(calculateDialedScore({ doseGrams: 18, finalYieldGrams: 36, extractionSeconds: 30 }).coverage).toBe(50);
+    expect(calculateDialedScore({ doseGrams: 18 }).coverageLabel).toBe("Geringe Aussagekraft");
   });
 });

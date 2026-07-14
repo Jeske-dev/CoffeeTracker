@@ -6,7 +6,9 @@ import { FilePenLine, Trash2 } from "lucide-react";
 import { readShotDraft, removeShotDraft, type StoredShotDraft } from "@/lib/shot-draft";
 import type { Bean } from "@/types/domain";
 
-export function ShotDraftCard({ userId, beans }: { userId: string; beans: Bean[] }) {
+type BeanPreview = Pick<Bean, "id" | "name">;
+
+export function ShotDraftCard({ userId, beans }: { userId: string; beans: BeanPreview[] }) {
   const [draft, setDraft] = useState<StoredShotDraft | null>(null);
 
   useEffect(() => {

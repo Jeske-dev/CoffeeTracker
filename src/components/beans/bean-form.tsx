@@ -13,10 +13,12 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { beanSchema, type BeanInput } from "@/lib/validation";
 import { saveBean } from "@/features/data/actions";
+import { usePrivateCache } from "@/hooks/use-private-cache";
 import type { Bean } from "@/types/domain";
 
-export function BeanForm({ bean, archiveAction }: { bean?: Bean; archiveAction?: React.ReactNode }) {
+export function BeanForm({ userId, bean, archiveAction }: { userId: string; bean?: Bean; archiveAction?: React.ReactNode }) {
   const router = useRouter();
+  const { invalidateBeanData } = usePrivateCache();
   const [pending, startTransition] = useTransition();
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<BeanInput>({
     resolver: zodResolver(beanSchema),
@@ -57,9 +59,9 @@ export function BeanForm({ bean, archiveAction }: { bean?: Bean; archiveAction?:
       toast.error(result.message);
       return;
     }
+    await invalidateBeanData({ userId, beanId: result.id, touchesDashboard: true });
     toast.success(result.message);
     router.push("/app/beans");
-    router.refresh();
   });
 
   return <form onSubmit={handleSubmit(submit)} className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto]">

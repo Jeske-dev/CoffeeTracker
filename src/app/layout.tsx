@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono, Newsreader } from "next/font/google";
 import { ServiceWorkerRegistrar } from "@/components/pwa/service-worker-registrar";
 import { Toaster } from "@/components/ui/sonner";
 import { PwaInstallationProvider } from "@/hooks/use-pwa-installation";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
@@ -24,7 +25,8 @@ export const metadata: Metadata = {
   },
 };
 export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover", interactiveWidget: "resizes-content", themeColor: "#2B1B16" };
+export const preferredRegion = "fra1";
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="de" className={`${inter.variable} ${newsreader.variable} ${jetbrains.variable}`}><body><PwaInstallationProvider>{children}<ServiceWorkerRegistrar /><Toaster position="bottom-center" offset={{ bottom: "calc(76px + env(safe-area-inset-bottom))" }} mobileOffset={{ bottom: "calc(76px + env(safe-area-inset-bottom))" }} richColors /></PwaInstallationProvider></body></html>;
+  return <html lang="de" className={`${inter.variable} ${newsreader.variable} ${jetbrains.variable}`}><body><PwaInstallationProvider>{children}<ServiceWorkerRegistrar /><Toaster position="bottom-center" offset={{ bottom: "calc(76px + env(safe-area-inset-bottom))" }} mobileOffset={{ bottom: "calc(76px + env(safe-area-inset-bottom))" }} richColors /></PwaInstallationProvider><SpeedInsights /></body></html>;
 }

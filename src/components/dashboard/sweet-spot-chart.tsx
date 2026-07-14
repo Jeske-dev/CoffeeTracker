@@ -2,9 +2,9 @@
 import { CartesianGrid, Cell, ComposedChart, Line, ReferenceArea, ResponsiveContainer, Scatter, Tooltip, XAxis, YAxis } from "recharts";
 import { brewRatio, TASTE_COLORS } from "@/lib/calculations";
 import { formatRatio, formatTime, formatWeight } from "@/lib/formatting";
-import type { ShotWithBean } from "@/types/domain";
+import type { ShotSummary } from "@/types/domain";
 
-export function SweetSpotChart({ shots }: { shots: ShotWithBean[] }) {
+export function SweetSpotChart({ shots }: { shots: ShotSummary[] }) {
   const complete = shots.filter((s) => s.extraction_seconds !== null && s.final_yield_grams !== null && s.dose_grams !== null && s.taste !== null);
   const data = [...complete].reverse().map((s) => ({ time: s.extraction_seconds as number, yield: s.final_yield_grams as number, name: s.beans?.name ?? "Shot", ratio: brewRatio(s.final_yield_grams, s.dose_grams), taste: s.taste as keyof typeof TASTE_COLORS, date: new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "short" }).format(new Date(s.shot_at)) }));
   const dose = complete.length ? complete.reduce((sum, s) => sum + (s.dose_grams as number), 0) / complete.length : 19;
