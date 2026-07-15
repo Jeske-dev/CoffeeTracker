@@ -19,7 +19,6 @@ type SetupFields = {
   grind: FieldValue;
   dose: FieldValue;
   prepTools: FieldValue;
-  basket?: FieldValue;
 };
 
 type RecipeFields = {
@@ -71,14 +70,13 @@ export function ShotRecipeSection({ fields }: { fields: RecipeFields }) {
 export function ShotSetupSection({ fields }: { fields: SetupFields }) {
   return <SectionCard title="Setup" icon={Bean} className="mb-3">
     <FieldGrid fields={[
-      ["Zeitpunkt", fields.shotAt ? { ...fields.shotAt, wide: true } : undefined],
       ["Bohne", { ...fields.bean, wide: true, icon: fields.bean.icon ?? Bean }],
-      ["Maschine", fields.machine],
-      ["Mühle", fields.grinder],
       ["Mahlgrad", { ...fields.grind, icon: fields.grind.icon ?? Gauge }],
       ["Dosis", { ...fields.dose, icon: fields.dose.icon ?? Scale }],
       ["Puck-Prep", { ...fields.prepTools, wide: true, icon: fields.prepTools.icon ?? ListChecks }],
-      ["Sieb", fields.basket],
+      ["Maschine", fields.machine],
+      ["Mühle", fields.grinder],
+      ["Zeitpunkt", fields.shotAt ? { ...fields.shotAt, wide: true } : undefined],
     ]} />
   </SectionCard>;
 }

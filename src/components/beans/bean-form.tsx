@@ -113,11 +113,12 @@ export function BeanForm({ userId, bean, archiveAction }: { userId: string; bean
   });
 
   return <form
+    id="bean-form"
     onSubmit={handleSubmit(submit)}
     aria-busy={pending}
     className={creating
-      ? "fixed inset-0 z-50 grid grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-[var(--dialed-surface)] min-[561px]:absolute"
-      : "grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden"}
+      ? "fixed inset-0 z-50 grid h-dvh max-h-dvh grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-[var(--dialed-surface)] min-[561px]:absolute min-[561px]:h-full"
+      : "grid h-full min-h-0 grid-rows-[minmax(0,1fr)] overflow-hidden"}
   >
     {creating && <header className="grid grid-cols-[44px_minmax(0,1fr)_44px] items-center gap-3 border-b border-black bg-white px-6 pt-[calc(16px+env(safe-area-inset-top))] pb-4">
       <Link href="/app/beans" aria-label="Schließen" title="Schließen" className="grid size-11 place-items-center border border-black bg-white hover:bg-black hover:text-white"><X className="size-4" /></Link>
@@ -127,7 +128,7 @@ export function BeanForm({ userId, bean, archiveAction }: { userId: string; bean
       </Button>
     </header>}
     <input type="hidden" {...register("tastingNotes")} />
-    <div className={`scrollbar-none min-h-0 overflow-y-auto px-6 py-6 ${creating ? "pb-[calc(32px+env(safe-area-inset-bottom))]" : "pb-8"}`}>
+    <div className="form-scroll-region px-6 py-6 pb-[env(safe-area-inset-bottom)]">
       <div className="mx-auto max-w-[680px]">
         <div className="mb-6"><h2 className="font-display text-[26px] font-semibold leading-tight">Was landet in der Mühle?</h2><p className="mt-2 text-xs leading-5 text-[var(--dialed-text-muted)]">Die wichtigsten Angaben bleiben schnell erfassbar; Details sind optional.</p></div>
 
@@ -150,9 +151,9 @@ export function BeanForm({ userId, bean, archiveAction }: { userId: string; bean
         <SectionCard title="Einkauf" description="Optional für Kosten und Frische" icon={ShoppingBag} className="mb-3"><div className="grid gap-4 sm:grid-cols-3"><Field label="Kaufdatum" icon={CalendarDays}><NativeDateInput label="Kaufdatum" value={purchaseDate} registration={register("purchaseDate")} onClear={() => setValue("purchaseDate", "")} /></Field><Field label="Packung" icon={Package}><Input aria-label="Packungsgewicht" type="number" step="0.1" placeholder="250 g" {...register("packageGrams", optionalNumberRegistration)} /></Field><Field label="Preis" icon={Euro}><Input aria-label="Preis" type="number" step="0.01" placeholder="14,90 €" {...register("priceEuros", optionalNumberRegistration)} /></Field></div></SectionCard>
 
         <SectionCard title="Besonderheiten" icon={BadgeInfo} className="mb-3"><label className="flex min-h-12 items-center justify-between border bg-[var(--dialed-surface-subtle)] px-3 text-xs font-semibold">Entkoffeiniert<Switch checked={decaf} onCheckedChange={(value) => setValue("isDecaf", value)} /></label>{archiveAction && <div className="mt-4 border-t pt-4">{archiveAction}</div>}</SectionCard>
+        <div aria-hidden="true" data-form-end-spacer className="h-20" />
       </div>
     </div>
-    {!creating && <footer className="z-10 flex gap-2 border-t border-black bg-white px-6 pt-3 pb-[calc(14px+env(safe-area-inset-bottom))]"><Button type="button" variant="secondary" onClick={() => router.back()} className="h-12 flex-1">Abbrechen</Button><Button disabled={pending} type="submit" className="h-12 flex-1 bg-black text-white">{pending ? "Speichert …" : "Bohne speichern"}</Button></footer>}
   </form>;
 }
 

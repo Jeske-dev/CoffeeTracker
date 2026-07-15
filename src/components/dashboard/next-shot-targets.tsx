@@ -2,10 +2,10 @@ import { Gauge, Scale, Weight } from "lucide-react";
 import { DataMetric } from "@/components/ui/data-metric";
 import { formatWeight } from "@/lib/formatting";
 import { resolveNextShotTargets } from "@/features/recommendations/next-shot-targets";
-import type { RecommendationBundleRecord, ShotSummary } from "@/types/domain";
+import type { ShotSummary } from "@/types/domain";
 
-export function NextShotTargets({ recommendation, latestShot }: { recommendation: RecommendationBundleRecord | null; latestShot: ShotSummary | null }) {
-  const targets = resolveNextShotTargets(recommendation, latestShot);
+export function NextShotTargets({ latestShot, history }: { latestShot: ShotSummary | null; history: ShotSummary[] }) {
+  const targets = resolveNextShotTargets(latestShot, history);
 
   return <section className="mt-4 grid grid-cols-3 border border-black bg-white" aria-label="Zielwerte für den nächsten Shot">
     <TargetMetric icon={Scale} label="Kaffee" accessibleLabel="Kaffeemenge" value={formatWeight(targets.doseGrams)} changed={targets.changed.dose} />

@@ -1,4 +1,11 @@
-import type { RecommendationBundleRecord, ShotSummary } from "@/types/domain";
+import { estimateStopWeight } from "@/features/shots/stop-weight-estimate";
+import type { ShotSummary } from "@/types/domain";
+import { recommendedGrindSetting } from "./grind-sensitivity";
+
+type StopHistoryShot = Pick<ShotSummary,
+  "id" | "bean_id" | "shot_at" | "grind_setting" | "stop_weight_grams" | "final_yield_grams"
+>;
+type TargetSourceShot = StopHistoryShot & Pick<ShotSummary, "dose_grams" | "extraction_seconds">;
 
 export type NextShotTargets = {
   doseGrams: number | null;
@@ -12,42 +19,52 @@ export type NextShotTargets = {
 };
 
 export function resolveNextShotTargets(
-  recommendation: RecommendationBundleRecord | null,
-  latestShot: Pick<ShotSummary, "dose_grams" | "grind_setting" | "stop_weight_grams"> | null | undefined,
+  latestShot: TargetSourceShot | null | undefined,
+  history: readonly StopHistoryShot[] = [],
 ): NextShotTargets {
-  const recipe = asRecord(recommendation?.target_recipe_snapshot);
-  const execution = asRecord(recommendation?.execution_adjustments);
-  const doseGrams = finiteNumber(recommendedValue(recommendation, "doseGrams")) ?? finiteNumber(recipe?.doseGrams) ?? latestShot?.dose_grams ?? null;
-  const grindSetting = stringValue(recommendedValue(recommendation, "grindSetting")) ?? stringValue(recipe?.grindSetting) ?? latestShot?.grind_setting ?? null;
-  const stopWeightGrams = finiteNumber(execution?.recommendedStopWeightGrams) ?? latestShot?.stop_weight_grams ?? null;
+  if (!latestShot) return emptyTargets;
+
+  const grindSetting = recommendedGrindSetting(latestShot.grind_setting, latestShot.extraction_seconds);
+  const measurements = uniqueShots([latestShot, ...history]).map((shot) => ({
+    id: shot.id,
+    beanId: shot.bean_id,
+    grindSetting: shot.grind_setting,
+    stopWeightGrams: shot.stop_weight_grams,
+    finalWeightGrams: shot.final_yield_grams,
+    occurredAt: shot.shot_at,
+  }));
+  const stopEstimate = estimateStopWeight({
+    beanId: latestShot.bean_id,
+    grindSetting,
+    targetFinalWeightGrams: latestShot.final_yield_grams,
+    history: measurements,
+  });
+  const stopWeightGrams = stopEstimate?.recommendedStopWeightGrams ?? latestShot.stop_weight_grams;
 
   return {
-    doseGrams,
+    doseGrams: latestShot.dose_grams,
     grindSetting,
     stopWeightGrams,
     changed: {
-      dose: doseGrams !== null && doseGrams !== latestShot?.dose_grams,
-      grind: grindSetting !== null && grindSetting !== latestShot?.grind_setting,
-      stop: stopWeightGrams !== null && stopWeightGrams !== latestShot?.stop_weight_grams,
+      dose: false,
+      grind: grindSetting !== null && grindSetting !== latestShot.grind_setting,
+      stop: stopWeightGrams !== null && stopWeightGrams !== latestShot.stop_weight_grams,
     },
   };
 }
 
-function finiteNumber(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
+const emptyTargets: NextShotTargets = {
+  doseGrams: null,
+  grindSetting: null,
+  stopWeightGrams: null,
+  changed: { dose: false, grind: false, stop: false },
+};
 
-function stringValue(value: unknown) {
-  return typeof value === "string" && value.trim() ? value : null;
-}
-
-function recommendedValue(recommendation: RecommendationBundleRecord | null, field: string) {
-  const primary = asRecord(recommendation?.primary_action);
-  if (!Array.isArray(primary?.changes)) return null;
-  const change = primary.changes.map(asRecord).find((item) => item?.field === field);
-  return change?.recommendedValue ?? null;
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+function uniqueShots(shots: readonly StopHistoryShot[]) {
+  const ids = new Set<string>();
+  return shots.filter((shot) => {
+    if (ids.has(shot.id)) return false;
+    ids.add(shot.id);
+    return true;
+  });
 }

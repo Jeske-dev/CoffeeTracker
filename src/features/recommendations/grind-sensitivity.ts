@@ -1,45 +1,57 @@
-import { roundTo } from "./signals";
+import { grindDirectionForTime, RECOMMENDED_GRIND_STEP } from "./policy";
 import type { GrinderConfig, RecommendationShot } from "./types";
-import { median } from "@/lib/statistics";
 
-export function normalizedFineness(setting: string | null, grinder?: GrinderConfig | null) {
-  if (setting === null || !grinder?.finerDirection) return null;
-  const numeric = Number(setting.replace(",", "."));
-  if (!Number.isFinite(numeric)) return null;
-  return grinder.finerDirection === "higher" ? numeric : -numeric;
-}
+type GrindDirection = "finer" | "coarser";
 
-export function learnGrindSensitivity(shots: RecommendationShot[], grinder?: GrinderConfig | null) {
-  if (shots.length < 5 || !grinder) return null;
-  const points = shots.flatMap((shot) => {
-    const fineness = normalizedFineness(shot.grindSetting, grinder);
-    return fineness !== null && shot.extractionTimeSeconds !== null ? [{ shot, fineness, time: shot.extractionTimeSeconds }] : [];
-  });
-  if (new Set(points.map((point) => point.fineness)).size < 3) return null;
-  const slopes: number[] = [];
-  for (let i = 0; i < points.length; i += 1) for (let j = i + 1; j < points.length; j += 1) {
-    const a = points[i]; const b = points[j];
-    if (a.fineness === b.fineness) continue;
-    if (a.shot.doseGrams !== null && b.shot.doseGrams !== null && Math.abs(a.shot.doseGrams - b.shot.doseGrams) > 0.5) continue;
-    if (a.shot.finalYieldGrams !== null && b.shot.finalYieldGrams !== null && Math.abs(a.shot.finalYieldGrams - b.shot.finalYieldGrams) > 3) continue;
-    const slope = (b.time - a.time) / (b.fineness - a.fineness);
-    if (slope > 0 && Number.isFinite(slope)) slopes.push(slope);
+export function grindChange({
+  direction,
+  shot,
+  grinder,
+}: {
+  direction: GrindDirection;
+  shot: Pick<RecommendationShot, "grindSetting">;
+  grinder?: GrinderConfig | null;
+}) {
+  const current = numericGrindSetting(shot.grindSetting);
+  if (current === null) {
+    return {
+      previous: shot.grindSetting,
+      recommended: null,
+      unit: grinder?.displayUnit ?? "Mahlgrad",
+    };
   }
-  const result = median(slopes);
-  return result !== null && result > 0 ? result : null;
+
+  const delta = direction === "finer" ? RECOMMENDED_GRIND_STEP : -RECOMMENDED_GRIND_STEP;
+  const minimum = grinder?.minimumSetting ?? Number.NEGATIVE_INFINITY;
+  const maximum = grinder?.maximumSetting ?? Number.POSITIVE_INFINITY;
+  const next = Math.min(maximum, Math.max(minimum, current + delta));
+
+  return {
+    previous: shot.grindSetting,
+    recommended: formatGrindSetting(next),
+    unit: grinder?.displayUnit ?? "Mahlgrad",
+  };
 }
 
-export function grindChange(input: { direction: "finer" | "coarser"; shot: RecommendationShot; targetTime: number; comparable: RecommendationShot[]; grinder?: GrinderConfig | null; strong: boolean }) {
-  const step = input.grinder?.microStep ?? 1;
-  const sensitivity = learnGrindSensitivity([input.shot, ...input.comparable], input.grinder);
-  let magnitude = input.strong ? 2 * step : step;
-  if (sensitivity && input.shot.extractionTimeSeconds !== null) magnitude = Math.abs(roundTo((input.targetTime - input.shot.extractionTimeSeconds) / sensitivity, step));
-  magnitude = Math.max(step, Math.min(2 * step, magnitude));
-  const normalized = normalizedFineness(input.shot.grindSetting, input.grinder);
-  if (normalized === null || !input.grinder?.finerDirection) return { previous: input.shot.grindSetting, recommended: null, steps: Math.round(magnitude / step), unit: input.grinder?.displayUnit ?? "Schritt" };
-  const nextNormalized = normalized + (input.direction === "finer" ? magnitude : -magnitude);
-  let next = input.grinder.finerDirection === "higher" ? nextNormalized : -nextNormalized;
-  if (input.grinder.minimumSetting !== null) next = Math.max(input.grinder.minimumSetting, next);
-  if (input.grinder.maximumSetting !== null) next = Math.min(input.grinder.maximumSetting, next);
-  return { previous: input.shot.grindSetting, recommended: Number(next.toFixed(4)).toString(), steps: Math.round(magnitude / step), unit: input.grinder.displayUnit ?? "Schritt" };
+export function recommendedGrindSetting(
+  grindSetting: string | null,
+  extractionTimeSeconds: number | null,
+  grinder?: GrinderConfig | null,
+) {
+  const direction = grindDirectionForTime(extractionTimeSeconds);
+  if (!direction) return grindSetting;
+  return grindChange({
+    direction,
+    shot: { grindSetting },
+    grinder,
+  }).recommended ?? grindSetting;
+}
+
+function numericGrindSetting(value: string | null) {
+  const parsed = Number(value?.trim().replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatGrindSetting(value: number) {
+  return Number(value.toFixed(2)).toString();
 }

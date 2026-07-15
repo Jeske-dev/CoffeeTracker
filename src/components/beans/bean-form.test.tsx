@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BeanForm } from "./bean-form";
+import type { Bean } from "@/types/domain";
 
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
@@ -72,5 +73,32 @@ describe("BeanForm", () => {
     expect(screen.getByRole("heading", { name: "Röstung" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Herkunft & Aufbereitung" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Herkunft" })).toBeInTheDocument();
+  });
+
+  it("stellt beim Bearbeiten ein extern absendbares und mobiles Scrollformular bereit", () => {
+    const bean: Bean = {
+      id: "bean-1",
+      user_id: "user-1",
+      name: "La Esperanza",
+      roaster: "Test Roasters",
+      roast_date: "2026-07-01",
+      origin: "Kolumbien",
+      process: "washed",
+      roast_level: "medium",
+      tasting_notes: [],
+      purchase_date: null,
+      price_cents: null,
+      package_grams: 250,
+      is_decaf: false,
+      archived_at: null,
+      created_at: "",
+      updated_at: "",
+    };
+
+    const { container } = render(<BeanForm userId="user-1" bean={bean} />);
+
+    expect(container.querySelector("form")).toHaveAttribute("id", "bean-form");
+    expect(container.querySelector(".form-scroll-region")).toBeInTheDocument();
+    expect(container.querySelector("[data-form-end-spacer]")).toHaveClass("h-20");
   });
 });

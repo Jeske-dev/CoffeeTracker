@@ -2,7 +2,7 @@ import { StrictMode } from "react";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ShotWizard } from "./shot-wizard";
-import type { Bean, Equipment, RecommendationBundleRecord, Shot, UserSettings } from "@/types/domain";
+import type { Bean, Equipment, Shot, UserSettings } from "@/types/domain";
 
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
@@ -39,17 +39,6 @@ const lastShot: Shot = {
   applied_recommendation_id: null, recommendation_applied: false, recommendation_changes: null, experiment_mode: false,
   scoring_version: "2.0.0-simple", score_coverage: 100, score_status: "Sehr detailliert", created_at: "", updated_at: "",
 };
-const recommendation = {
-  id: "22222222-2222-4222-8222-222222222222", user_id: "user-1", source_shot_id: lastShot.id, bean_id: bean.id,
-  machine_id: machine.id, grinder_id: grinder.id, basket_id: null,
-  target_recipe_snapshot: { doseGrams: 18, targetYieldGrams: 36, targetExtractionTimeSeconds: 30, grindSetting: "5", prepTools: ["WDT"] },
-  engine_version: "2.0.0-simple",
-  primary_action: { actionType: "GRIND_FINER", priorityTier: 3, severity: 1, confidence: 0.7, expectedImpact: 0.7, personalEffectiveness: 0.5, title: "Mahlgrad auf 4 stellen", summary: "Flow verlangsamen", explanation: "Für diesen Shot einen kleinen Schritt feiner mahlen.", changes: [{ field: "grindSetting", previousValue: "5", recommendedValue: "4" }], evidence: [], suppressedReasons: [] },
-  execution_adjustments: { recommendedStopWeightGrams: 34, expectedOvershootGrams: 2, sampleSize: 3, confidence: 0.65 },
-  confidence: 0.7, confidence_label: "Mittlere Sicherheit", evidence: [], status: "applied", applied_at: "", dismissed_at: null,
-  resulting_shot_id: null, user_feedback: null, outcome: null, created_at: "", updated_at: "",
-} as RecommendationBundleRecord;
-
 describe("vereinfachter ShotWizard", () => {
   afterEach(() => {
     cleanup();
@@ -62,7 +51,10 @@ describe("vereinfachter ShotWizard", () => {
   });
 
   it("zeigt keine entfernten Diagnosefelder", () => {
-    render(<ShotWizard userId="user-1" beans={[bean]} equipment={[machine, grinder]} settings={settings} lastShot={lastShot} />);
+    const { container } = render(<ShotWizard userId="user-1" beans={[bean]} equipment={[machine, grinder]} settings={settings} lastShot={lastShot} />);
+    expect(container.querySelector("#new-shot-form")).toHaveClass("h-full", "overflow-hidden");
+    expect(container.querySelector(".form-scroll-region")).toBeInTheDocument();
+    expect(container.querySelector("[data-form-end-spacer]")).toHaveClass("h-20");
     expect(screen.queryByText(/Druck/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/erster Tropfen/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Temperatur/i)).not.toBeInTheDocument();
@@ -187,10 +179,10 @@ describe("vereinfachter ShotWizard", () => {
     expect(await screen.findByRole("button", { name: "Offline – Entwurf bleibt erhalten" })).toBeDisabled();
   });
 
-  it("zeigt Zielwerte leise an, ohne Eingaben automatisch zu ändern", async () => {
-    render(<ShotWizard userId="user-1" beans={[bean]} equipment={[machine, grinder]} settings={settings} lastShot={lastShot} recommendation={{ ...recommendation, status: "active" }} />);
+  it("zeigt den zeitbasierten Mahlgrad leise an, ohne Eingaben automatisch zu ändern", async () => {
+    render(<ShotWizard userId="user-1" beans={[bean]} equipment={[machine, grinder]} settings={settings} lastShot={{ ...lastShot, extraction_seconds: 19 }} stopWeightHistory={[lastShot]} />);
     expect(await screen.findByDisplayValue("5")).toBeInTheDocument();
-    expect(screen.getByLabelText("Zielwert aus deinen letzten Shots: 4")).toHaveTextContent("Ziel: 4");
+    expect(screen.getByLabelText("Zielwert aus deinen letzten Shots: 5.33")).toHaveTextContent("Ziel: 5.33");
     expect(screen.queryByRole("button", { name: "Übernehmen" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Ausblenden" })).not.toBeInTheDocument();
   });

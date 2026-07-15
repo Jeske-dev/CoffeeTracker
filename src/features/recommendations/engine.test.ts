@@ -1,7 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { generateRecommendation } from "./engine";
-import { normalizedFineness } from "./grind-sensitivity";
 import { calculateOutcome } from "./outcome";
 import { calculateSignals } from "./signals";
 import { calculateStopWeight } from "./stop-weight";
@@ -25,7 +24,7 @@ const base: RecommendationShot = {
   doseGrams: 18,
   finalYieldGrams: 36,
   stopWeightGrams: 34,
-  extractionTimeSeconds: 30,
+  extractionTimeSeconds: 25,
   grindSetting: "5",
   prepTools: [],
   overallTasteRating: 3,
@@ -41,41 +40,47 @@ const recommend = (values: Partial<RecommendationShot> = {}, extra: Partial<Omit
   ...extra,
 });
 
-describe("vereinfachte Recommendation Engine", () => {
-  it("empfiehlt für einen guten ausgewogenen Shot Beibehalten", () => {
-    expect(recommend({ overallTasteRating: 4, taste: "balanced", extractionTimeSeconds: 44 }).primary.actionType).toBe("KEEP_RECIPE");
+describe("Recommendation Engine", () => {
+  it("behält einen guten ausgewogenen Shot im Zeitfenster bei", () => {
+    expect(recommend({ overallTasteRating: 4, taste: "balanced", extractionTimeSeconds: 25 }).primary.actionType).toBe("KEEP_RECIPE");
   });
 
-  it("empfiehlt bei sauer und schnell feiner", () => {
-    expect(recommend({ taste: "sour", extractionTimeSeconds: 22 }).primary.actionType).toBe("GRIND_FINER");
+  it("stellt unter 20 Sekunden unabhängig vom Geschmack um 0,33 feiner", () => {
+    const result = recommend({ taste: null, overallTasteRating: null, extractionTimeSeconds: 19 });
+    expect(result.primary.actionType).toBe("GRIND_FINER");
+    expect(result.primary.changes[0]).toMatchObject({ previousValue: "5", recommendedValue: "5.33" });
   });
 
-  it("empfiehlt bei bitter und langsam gröber", () => {
-    expect(recommend({ taste: "bitter", extractionTimeSeconds: 40 }).primary.actionType).toBe("GRIND_COARSER");
+  it("stellt über 30 Sekunden unabhängig vom Geschmack um 0,33 gröber", () => {
+    const result = recommend({ taste: "bitter", extractionTimeSeconds: 31 });
+    expect(result.primary.actionType).toBe("GRIND_COARSER");
+    expect(result.primary.changes[0]).toMatchObject({ previousValue: "5", recommendedValue: "4.67" });
   });
 
-  it("erhöht bei saurem Geschmack und passender Zeit den Yield", () => {
-    const result = recommend({ taste: "sour", extractionTimeSeconds: 30 });
-    expect(result.primary.actionType).toBe("INCREASE_YIELD");
-    expect(result.primary.changes[0].recommendedValue).toBe(38);
+  it.each([20, 30])("ändert den Mahlgrad am Grenzwert %s Sekunden nicht", (extractionTimeSeconds) => {
+    expect(recommend({ extractionTimeSeconds }).primary.actionType).not.toMatch(/^GRIND_/);
   });
 
-  it("reduziert bei bitterem Geschmack und passender Zeit den Yield", () => {
-    const result = recommend({ taste: "bitter", extractionTimeSeconds: 30 });
-    expect(result.primary.actionType).toBe("DECREASE_YIELD");
-    expect(result.primary.changes[0].recommendedValue).toBe(34);
+  it("wendet die Zeitregel auch ohne Zielrezept an", () => {
+    expect(recommend({ targetRecipeSnapshot: null, extractionTimeSeconds: 12 }).primary.actionType).toBe("GRIND_FINER");
   });
 
-  it("empfiehlt WDT bei starkem Channeling ohne WDT", () => {
-    expect(recommend({ extractionPicture: "channeling", prepTools: [] }).primary.actionType).toBe("USE_WDT");
+  it("ändert die Kaffeemenge nicht", () => {
+    const result = recommend({ doseGrams: 20 });
+    expect(result.primary.actionType).not.toMatch(/DOSE/);
+    expect(result.primary.changes).not.toContainEqual(expect.objectContaining({ field: "doseGrams" }));
+  });
+
+  it("empfiehlt WDT bei starkem Channeling innerhalb des Zeitfensters", () => {
+    expect(recommend({ extractionTimeSeconds: 25, extractionPicture: "channeling", prepTools: [] }).primary.actionType).toBe("USE_WDT");
   });
 
   it("empfiehlt bessere WDT-Verteilung bei starkem Channeling mit WDT", () => {
-    expect(recommend({ extractionPicture: "channeling", prepTools: ["WDT"] }).primary.actionType).toBe("IMPROVE_WDT");
+    expect(recommend({ extractionTimeSeconds: 25, extractionPicture: "channeling", prepTools: ["WDT"] }).primary.actionType).toBe("IMPROVE_WDT");
   });
 
-  it("lässt Channeling eine Mahlgradänderung unterdrücken", () => {
-    expect(recommend({ taste: "sour", extractionTimeSeconds: 20, extractionPicture: "channeling" }).primary.actionType).toBe("USE_WDT");
+  it("priorisiert die eindeutige Zeitregel auch bei Channeling", () => {
+    expect(recommend({ extractionTimeSeconds: 19, extractionPicture: "channeling" }).primary.actionType).toBe("GRIND_FINER");
   });
 
   it("erkennt wiederholtes leichtes Channeling in zwei der letzten drei Shots", () => {
@@ -89,36 +94,11 @@ describe("vereinfachte Recommendation Engine", () => {
     expect(result.primary.confidence).toBeLessThan(0.75);
   });
 
-  it("kennzeichnet technische Tipps ohne Geschmack mit niedriger Sicherheit", () => {
-    const technical = recommend({ overallTasteRating: null, taste: null, extractionTimeSeconds: 20 });
-    const sensory = recommend({ taste: "sour", extractionTimeSeconds: 20 });
-    expect(technical.primary.actionType).toBe("GRIND_FINER");
-    expect(technical.primary.confidence).toBeLessThan(sensory.primary.confidence);
-  });
-
-  it("erfindet ohne Zielrezept keinen Mahlgrad-Tipp", () => {
-    expect(recommend({ targetRecipeSnapshot: null, taste: "sour", extractionTimeSeconds: 12 }).primary.actionType).toBe("COLLECT_MORE_DATA");
-  });
-
-  it("ändert die Dosis nur bei verletzter Siebkapazität", () => {
-    const result = recommend({ doseGrams: 20 }, { basket: { nominalDoseGrams: 18, minimumDoseGrams: 17, maximumDoseGrams: 19 } });
-    expect(result.primary.actionType).toBe("DECREASE_DOSE");
-    expect(result.primary.changes[0].recommendedValue).toBe(19.5);
-  });
-
-  it("erzeugt bei einem nassen Puck allein keine Dosisänderung", () => {
-    expect(recommend({ puck: "wet" }).primary.actionType).not.toMatch(/DOSE/);
-  });
-
-  it("begrenzt Mahlgradänderungen auf zwei Micro-Steps", () => {
-    const result = recommend({ taste: "sour", extractionTimeSeconds: 10 }, {
-      grinder: { grindScaleType: "stepped", minimumSetting: 0, maximumSetting: 20, microStep: 1, finerDirection: "higher", displayUnit: "Klick" },
+  it("beachtet die konfigurierten Grenzen der Mühle", () => {
+    const result = recommend({ grindSetting: "10", extractionTimeSeconds: 10 }, {
+      grinder: { grindScaleType: "stepped", minimumSetting: 0, maximumSetting: 10.2, microStep: 1, finerDirection: "lower", displayUnit: "Klick" },
     });
-    expect(result.primary.changes[0].recommendedValue).toBe("7");
-  });
-
-  it("berücksichtigt umgekehrte Mühlenskalen", () => {
-    expect(normalizedFineness("4.2", { grindScaleType: "stepless", minimumSetting: 0, maximumSetting: 10, microStep: 0.1, finerDirection: "lower" })).toBe(-4.2);
+    expect(result.primary.changes[0].recommendedValue).toBe("10.2");
   });
 
   it("liest entfernte Legacy-Felder nicht", () => {
@@ -126,28 +106,40 @@ describe("vereinfachte Recommendation Engine", () => {
     expect(generateRecommendation({ shot: legacyShot, history: [] }).primary.actionType).toBe(generateRecommendation({ shot: base, history: [] }).primary.actionType);
   });
 
-  it("berechnet Ratio, Nachlauf und Zeitschwelle", () => {
-    const signals = calculateSignals(base, target);
+  it("berechnet Ratio, Nachlauf und das feste Zeitfenster", () => {
+    const signals = calculateSignals(base);
     expect(signals.brewRatio).toBe(2);
     expect(signals.actualOvershoot).toBe(2);
-    expect(signals.timeThreshold).toBeCloseTo(3.6);
+    expect(signals.timeNearTarget).toBe(true);
+    expect(calculateSignals(shot({ extractionTimeSeconds: 19 })).fastShot).toBe(true);
+    expect(calculateSignals(shot({ extractionTimeSeconds: 31 })).slowShot).toBe(true);
   });
 });
 
 describe("Stop-Gewicht", () => {
-  it("verwendet den Median der letzten Shots derselben Maschine", () => {
-    const history = [2, 1.8, 2.2].map((overshoot, index) => shot({ id: `${index}`, stopWeightGrams: 36 - overshoot }));
+  it("verwendet den durchschnittlichen Nachlauf gleicher Bohne und gleichen Mahlgrads", () => {
+    const history = [1, 3].map((overshoot, index) => shot({ id: `${index}`, stopWeightGrams: 36 - overshoot }));
     expect(calculateStopWeight(base, history, 36)?.recommendedStopWeightGrams).toBe(34);
   });
 
-  it("ignoriert Shots anderer Maschinen", () => {
-    const history = [shot({ id: "same", stopWeightGrams: 34 }), shot({ id: "other", machineId: "other", stopWeightGrams: 20 })];
-    expect(calculateStopWeight(base, history, 36)?.expectedOvershootGrams).toBe(2);
+  it("ignoriert beim direkten Durchschnitt andere Bohnen und Mahlgrade", () => {
+    const history = [
+      shot({ id: "same", stopWeightGrams: 33 }),
+      shot({ id: "other-bean", beanId: "other", stopWeightGrams: 25 }),
+      shot({ id: "other-grind", grindSetting: "6", stopWeightGrams: 25 }),
+    ];
+    expect(calculateStopWeight(base, history, 36)?.expectedOvershootGrams).toBe(2.5);
   });
 
   it("entfernt einen starken Nachlauf-Ausreißer", () => {
-    const history = [2, 2.1, 1.9, 2.05, 15].map((overshoot, index) => shot({ id: `${index}`, stopWeightGrams: 36 - overshoot }));
+    const history = [2.1, 1.9, 2.05, 10].map((overshoot, index) => shot({ id: `${index}`, stopWeightGrams: 36 - overshoot }));
     expect(calculateStopWeight(base, history, 36)?.expectedOvershootGrams).toBe(2);
+  });
+
+  it("rechnet ohne passenden Mahlgrad den Nachlauf per Dreisatz um", () => {
+    const result = calculateStopWeight(base, [], 45, "5.33");
+    expect(result?.recommendedStopWeightGrams).toBe(42.5);
+    expect(result?.expectedOvershootGrams).toBe(2.5);
   });
 });
 

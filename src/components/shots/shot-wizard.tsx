@@ -18,7 +18,6 @@ import {
   getSelectableBeans,
   groupShotEquipment,
   prepareShotSubmission,
-  recommendationMatchesSetup,
   stepGrindSetting,
   stepNumericValue,
 } from "@/features/shots/form-model";
@@ -29,11 +28,10 @@ import { usePrivateCache } from "@/hooks/use-private-cache";
 import { privateCacheKeys } from "@/lib/cache/keys";
 import { runOptimisticMutation } from "@/lib/cache/optimistic-mutation";
 import type { ShotsPayload } from "@/lib/cache/types";
-import { formatWeight } from "@/lib/formatting";
 import { togglePrepTool as withToggledPrepTool, type PrepTool } from "@/lib/prep-tools";
 import { removeShotDraft } from "@/lib/shot-draft";
 import { shotSchema, type ShotInput } from "@/lib/validation";
-import type { Bean, Equipment, RecommendationBundleRecord, Shot, UserSettings } from "@/types/domain";
+import type { Bean, Equipment, Shot, UserSettings } from "@/types/domain";
 import {
   BeanSelectControl,
   GrindControl,
@@ -54,7 +52,6 @@ export function ShotWizard({
   equipment,
   settings,
   lastShot,
-  recommendation = null,
   stopWeightHistory = emptyStopWeightHistory,
 }: {
   userId: string;
@@ -62,7 +59,6 @@ export function ShotWizard({
   equipment: Equipment[];
   settings: UserSettings | null;
   lastShot: Shot | null;
-  recommendation?: RecommendationBundleRecord | null;
   stopWeightHistory?: StopWeightHistoryShot[];
 }) {
   const router = useRouter();
@@ -79,15 +75,13 @@ export function ShotWizard({
   });
   const values = watch();
   const saveDraft = useShotDraft({ userId, defaults, step, values, reset, setStep });
-  const targets = resolveNextShotTargets(recommendation, lastShot);
-  const matchesRecommendationSetup = recommendationMatchesSetup(recommendation, values);
+  const targets = resolveNextShotTargets(lastShot, stopWeightHistory);
   const stopWeightTip = useMemo(() => calculateStopWeightTip({
     beanId: values.beanId || null,
-    grinderId: values.grinderId,
     grindSetting: values.grindSetting,
     targetFinalWeightGrams: values.finalYieldGrams,
     history: stopWeightHistory,
-  }), [stopWeightHistory, values.beanId, values.finalYieldGrams, values.grindSetting, values.grinderId]);
+  }), [stopWeightHistory, values.beanId, values.finalYieldGrams, values.grindSetting]);
 
   const close = () => {
     saveDraft();
@@ -161,13 +155,10 @@ export function ShotWizard({
 
   const selectedMachine = machines.find((item) => item.id === values.machineId) ?? null;
   const selectedGrinder = grinders.find((item) => item.id === values.grinderId) ?? null;
-  const doseHint = matchesRecommendationSetup && targets.changed.dose && targets.doseGrams !== values.doseGrams
-    ? <TargetHint value={formatWeight(targets.doseGrams)} />
-    : undefined;
-  const grindHint = matchesRecommendationSetup && targets.changed.grind && targets.grindSetting !== values.grindSetting
+  const grindHint = values.beanId === lastShot?.bean_id && targets.changed.grind && targets.grindSetting !== values.grindSetting
     ? <TargetHint value={targets.grindSetting ?? "–"} />
     : undefined;
-  return <div className="fixed inset-0 z-50 grid grid-rows-[auto_minmax(0,1fr)] bg-[var(--dialed-surface)] min-[561px]:absolute">
+  return <div className="fixed inset-0 z-50 grid h-dvh max-h-dvh grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-[var(--dialed-surface)] min-[561px]:absolute min-[561px]:h-full">
     <header className="border-b border-black bg-white px-6 pt-[calc(16px+env(safe-area-inset-top))] pb-4">
       <div className="grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-2">
         {step === 1
@@ -187,18 +178,18 @@ export function ShotWizard({
       <div className="mt-4 grid grid-cols-3 border border-black">{[1, 2, 3].map((item) => <span key={item} className={`h-1.5 border-r border-black last:border-r-0 ${item <= step ? "bg-black" : "bg-white"}`} />)}</div>
       <div className="mt-2 grid grid-cols-3 text-center text-[9px] font-semibold tracking-[.08em] text-[var(--dialed-text-muted)] uppercase">{["Rezept", "Extraktion", "Bewertung"].map((label, index) => <span key={label} className={step === index + 1 ? "text-black" : ""}>{label}</span>)}</div>
     </header>
-    <form id="new-shot-form" onSubmit={handleSubmit(submit)} className="min-h-0 overflow-hidden">
+    <form id="new-shot-form" onSubmit={handleSubmit(submit)} className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)] overflow-hidden">
       <input type="hidden" {...register("beanId")} />
       <input type="hidden" {...register("machineId", nullableString)} />
       <input type="hidden" {...register("grinderId", nullableString)} />
       <input type="hidden" {...register("basketId", nullableString)} />
-      <div className="scrollbar-none h-full min-h-0 overflow-y-auto px-6 py-6 pb-[calc(32px+env(safe-area-inset-bottom))]"><div className="mx-auto max-w-[680px]">
+      <div className="form-scroll-region h-full px-6 py-6 pb-[env(safe-area-inset-bottom)]"><div className="mx-auto max-w-[680px]">
         {step === 1 && <>
           <PageTitle>Rezept</PageTitle>
           <ShotRecipeSection fields={{
             bean: { value: <BeanSelectControl label="Bohne wählen" options={activeBeans} value={values.beanId} onValueChange={(value) => setValue("beanId", value, { shouldDirty: true, shouldValidate: true })} /> },
             grind: { value: <GrindControl value={values.grindSetting} registration={register("grindSetting", nullableString)} onStep={(delta) => setValue("grindSetting", stepGrindSetting(values.grindSetting, delta), { shouldDirty: true })} />, hint: grindHint },
-            dose: { value: <NumberControl ariaLabel="Dosis" unit="g" value={values.doseGrams} registration={register("doseGrams", requiredNumber)} onStep={(delta) => setValue("doseGrams", stepNumericValue(values.doseGrams, delta), { shouldDirty: true, shouldValidate: true })} />, hint: doseHint },
+            dose: { value: <NumberControl ariaLabel="Dosis" unit="g" value={values.doseGrams} registration={register("doseGrams", requiredNumber)} onStep={(delta) => setValue("doseGrams", stepNumericValue(values.doseGrams, delta), { shouldDirty: true, shouldValidate: true })} /> },
             prepTools: { value: <PrepToolsControl value={values.prepTools ?? []} onToggle={togglePrepTool} /> },
           }} />
           <FormError text={errors.beanId?.message ?? errors.doseGrams?.message} />
@@ -239,6 +230,7 @@ export function ShotWizard({
             onPuckChange={(puck) => setValue("puck", puck, { shouldDirty: true })}
           />
         </>}
+        <div aria-hidden="true" data-form-end-spacer className="h-20" />
       </div></div>
     </form>
   </div>;

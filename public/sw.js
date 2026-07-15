@@ -1,7 +1,8 @@
-const CACHE_NAME = "dialed-static-v1";
+const CACHE_NAME = "dialed-static-v2";
 const PRECACHE = [
   "/manifest.webmanifest",
   "/favicon.ico",
+  "/icon.svg",
   "/icons/dialed-192.png",
   "/icons/dialed-512.png",
   "/icons/dialed-maskable-512.png",
@@ -34,6 +35,7 @@ self.addEventListener("fetch", (event) => {
   const isStaticAsset =
     url.pathname.startsWith("/_next/static/") ||
     url.pathname.startsWith("/icons/") ||
+    url.pathname === "/icon.svg" ||
     url.pathname === "/favicon.ico" ||
     url.pathname === "/manifest.webmanifest";
   if (!isStaticAsset) return;

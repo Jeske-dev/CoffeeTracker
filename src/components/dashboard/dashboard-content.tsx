@@ -146,8 +146,7 @@ function DashboardChart({ data }: { data: DashboardData }) {
 }
 
 function DashboardTargets({ data }: { data: DashboardData }) {
-  const recommendation = data.settings?.dial_in_suggestions_enabled === false ? null : data.activeRecommendation;
-  return <NextShotTargets recommendation={recommendation} latestShot={data.shots[0] ?? null} />;
+  return <NextShotTargets latestShot={data.shots[0] ?? null} history={data.shots} />;
 }
 
 function RecentShots({ shots }: { shots: DashboardData["shots"] }) {

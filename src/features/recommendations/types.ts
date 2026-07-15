@@ -1,6 +1,6 @@
 import type { PuckState, ShotFlow, ShotTaste } from "@/types/domain";
 
-export const RECOMMENDATION_ENGINE_VERSION = "2.0.0-simple" as const;
+export const RECOMMENDATION_ENGINE_VERSION = "2.1.0-time-range" as const;
 
 export type RecommendationActionType =
   | "KEEP_RECIPE"
@@ -34,12 +34,6 @@ export type GrinderConfig = {
   microStep: number | null;
   finerDirection: "higher" | "lower" | null;
   displayUnit?: string | null;
-};
-
-export type BasketConfig = {
-  nominalDoseGrams: number | null;
-  minimumDoseGrams: number | null;
-  maximumDoseGrams: number | null;
 };
 
 export type RecommendationShot = {
@@ -114,7 +108,6 @@ export type RecommendationInput = {
   referenceRecipe?: RecipeSnapshot | null;
   starterRecipe?: RecipeSnapshot | null;
   grinder?: GrinderConfig | null;
-  basket?: BasketConfig | null;
   personalEffectiveness?: Partial<Record<RecommendationActionType, number>>;
   generatedAt?: string;
 };
@@ -122,14 +115,11 @@ export type RecommendationInput = {
 export type RecommendationSignals = {
   brewRatio: number | null;
   actualOvershoot: number | null;
-  timeDeviation: number | null;
-  timeThreshold: number | null;
   fastShot: boolean;
   slowShot: boolean;
   timeNearTarget: boolean;
   severeChanneling: boolean;
   goodShot: boolean;
-  hasTasteData: boolean;
 };
 
 export type RecommendationOutcome = {

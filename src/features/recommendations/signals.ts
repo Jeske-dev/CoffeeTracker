@@ -1,7 +1,7 @@
 import type { RecipeSnapshot, RecommendationShot, RecommendationSignals } from "./types";
+import { TARGET_EXTRACTION_MAX_SECONDS, TARGET_EXTRACTION_MIN_SECONDS } from "./policy";
 
 export const clamp = (value: number, min = 0, max = 1) => Math.min(max, Math.max(min, value));
-export const roundTo = (value: number, step: number) => Math.round(value / step) * step;
 
 export function resolveTargetRecipe(
   shot: RecommendationShot,
@@ -24,32 +24,27 @@ export function recipeIdentity(recipe: RecipeSnapshot | null) {
   });
 }
 
-export function calculateSignals(shot: RecommendationShot, target: RecipeSnapshot | null): RecommendationSignals {
+export function calculateSignals(shot: RecommendationShot): RecommendationSignals {
   const brewRatio = shot.finalYieldGrams !== null && shot.doseGrams !== null && shot.doseGrams > 0
     ? shot.finalYieldGrams / shot.doseGrams
     : null;
   const actualOvershoot = shot.finalYieldGrams !== null && shot.stopWeightGrams !== null
     ? shot.finalYieldGrams - shot.stopWeightGrams
     : null;
-  const targetTime = target?.targetExtractionTimeSeconds ?? null;
-  const timeDeviation = shot.extractionTimeSeconds !== null && targetTime !== null
-    ? shot.extractionTimeSeconds - targetTime
-    : null;
-  const timeThreshold = targetTime !== null ? Math.max(3, targetTime * 0.12) : null;
+  const extractionTime = shot.extractionTimeSeconds;
+  const fastShot = extractionTime !== null && extractionTime < TARGET_EXTRACTION_MIN_SECONDS;
+  const slowShot = extractionTime !== null && extractionTime > TARGET_EXTRACTION_MAX_SECONDS;
+  const timeNearTarget = extractionTime !== null && !fastShot && !slowShot;
   const severeChanneling = shot.extractionPicture === "channeling";
-  const hasTasteData = shot.overallTasteRating !== null || shot.taste !== null;
-  const goodShot = (shot.overallTasteRating ?? 0) >= 4 && shot.taste === "balanced" && !severeChanneling;
+  const goodShot = timeNearTarget && (shot.overallTasteRating ?? 0) >= 4 && shot.taste === "balanced" && !severeChanneling;
   return {
     brewRatio,
     actualOvershoot,
-    timeDeviation,
-    timeThreshold,
-    fastShot: timeDeviation !== null && timeThreshold !== null && timeDeviation < -timeThreshold,
-    slowShot: timeDeviation !== null && timeThreshold !== null && timeDeviation > timeThreshold,
-    timeNearTarget: timeDeviation !== null && timeThreshold !== null && Math.abs(timeDeviation) <= timeThreshold,
+    fastShot,
+    slowShot,
+    timeNearTarget,
     severeChanneling,
     goodShot,
-    hasTasteData,
   };
 }
 

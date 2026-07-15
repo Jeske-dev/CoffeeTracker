@@ -107,7 +107,6 @@ export async function generateAndStoreRecommendation(
     );
     const referenceShot = settings?.reference_shot_id ? history.find((item) => item.id === settings.reference_shot_id) : null;
     const grinder = equipment.find((item) => item.id === shot.grinder_id);
-    const basket = equipment.find((item) => item.id === shot.basket_id);
     const prior = (previousResult.data ?? []) as RecommendationBundleRecord[];
     const actionTypes = [...new Set(prior.map((item) => (item.primary_action as { actionType?: string }).actionType).filter(isKnownAction))];
     const effectiveness = Object.fromEntries(actionTypes.map((action) => {
@@ -132,11 +131,6 @@ export async function generateAndStoreRecommendation(
         microStep: grinder.micro_step ?? null,
         finerDirection: grinder.finer_direction ?? null,
         displayUnit: grinder.display_unit ?? null,
-      } : null,
-      basket: basket ? {
-        nominalDoseGrams: basket.nominal_dose_grams ?? null,
-        minimumDoseGrams: basket.minimum_dose_grams ?? null,
-        maximumDoseGrams: basket.maximum_dose_grams ?? null,
       } : null,
       personalEffectiveness: effectiveness,
     });

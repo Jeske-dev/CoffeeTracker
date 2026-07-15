@@ -1,7 +1,7 @@
 import { calculateDialedScore, scoreTargetFromSnapshot, SCORING_VERSION } from "@/lib/calculations";
 import { normalizePrepTools } from "@/lib/prep-tools";
 import type { ShotEditInput, ShotInput } from "@/lib/validation";
-import type { Bean, Equipment, RecommendationBundleRecord, Shot, ShotSummary, UserSettings } from "@/types/domain";
+import type { Bean, Equipment, Shot, ShotSummary, UserSettings } from "@/types/domain";
 
 const trackedRecipeFields = ["doseGrams", "grindSetting", "stopWeightGrams"] as const;
 const clearedRecommendationMetadata = {
@@ -116,14 +116,6 @@ export function prepareShotSubmission(data: ShotInput, defaults: ShotInput): Sho
       manual: true,
     }));
   return { ...data, ...clearedRecommendationMetadata, recommendationChanges };
-}
-
-export function recommendationMatchesSetup(recommendation: RecommendationBundleRecord | null, values: ShotInput) {
-  return Boolean(recommendation)
-    && recommendation?.bean_id === values.beanId
-    && recommendation?.machine_id === values.machineId
-    && recommendation?.grinder_id === values.grinderId
-    && recommendation?.basket_id === values.basketId;
 }
 
 export function stepGrindSetting(value: string | null, delta: number) {

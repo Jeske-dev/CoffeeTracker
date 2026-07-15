@@ -98,7 +98,10 @@ describe("ShotEditForm", () => {
   it("verwendet dieselbe Abschnittsreihenfolge und zeigt keine Legacy-Felder", () => {
     const { container } = render(<ShotEditForm userId="user-1" shot={shot} beans={[bean]} equipment={[machine, grinder]} />);
 
+    expect(container.querySelector("form")).toHaveAttribute("id", "shot-edit-form");
     expect(container.querySelector("form")).toHaveClass("h-full", "overflow-hidden");
+    expect(container.querySelector(".form-scroll-region")).toBeInTheDocument();
+    expect(container.querySelector("[data-form-end-spacer]")).toHaveClass("h-20");
     expect(screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toEqual([
       "Setup",
       "Extraktion",
@@ -116,21 +119,29 @@ describe("ShotEditForm", () => {
     expect(screen.getByRole("button", { name: "Stop-Gewicht erhöhen" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Finales Getränkgewicht erhöhen" })).toBeInTheDocument();
     expect(screen.getByRole("slider", { name: "Extraktionszeit" })).toHaveValue("30");
+    expect(screen.queryByText("Sieb")).not.toBeInTheDocument();
+    expect([...container.querySelectorAll("[data-shot-field]")].slice(0, 7).map((field) => field.getAttribute("data-shot-field"))).toEqual([
+      "Bohne",
+      "Mahlgrad",
+      "Dosis",
+      "Puck-Prep",
+      "Maschine",
+      "Mühle",
+      "Zeitpunkt",
+    ]);
   });
 
-  it("bricht ohne Mutation ab", () => {
+  it("mutiert vor dem Absenden keine Daten", () => {
     render(<ShotEditForm userId="user-1" shot={shot} beans={[bean]} equipment={[machine, grinder]} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Abbrechen" }));
-    expect(mocks.back).toHaveBeenCalledOnce();
     expect(mocks.updateShot).not.toHaveBeenCalled();
   });
 
   it("speichert alle vereinfachten Werte über die zentrale Update-Aktion", async () => {
-    render(<ShotEditForm userId="user-1" shot={shot} beans={[bean]} equipment={[machine, grinder]} />);
+    const { container } = render(<ShotEditForm userId="user-1" shot={shot} beans={[bean]} equipment={[machine, grinder]} />);
 
     fireEvent.change(screen.getByRole("spinbutton", { name: "Finales Getränkgewicht" }), { target: { value: "37" } });
-    fireEvent.click(screen.getByRole("button", { name: "Änderungen speichern" }));
+    fireEvent.submit(container.querySelector("#shot-edit-form") as HTMLFormElement);
 
     await waitFor(() => expect(mocks.updateShot).toHaveBeenCalledOnce());
     expect(mocks.updateShot.mock.calls[0][0]).toBe(shot.id);

@@ -4,7 +4,6 @@ import { calculateStopWeightTip, type StopWeightHistoryShot } from "./stop-weigh
 const historyShot = (overrides: Partial<StopWeightHistoryShot> = {}): StopWeightHistoryShot => ({
   id: "shot-1",
   bean_id: "bean-1",
-  grinder_id: "grinder-1",
   grind_setting: "5",
   stop_weight_grams: 34,
   final_yield_grams: 36,
@@ -13,10 +12,9 @@ const historyShot = (overrides: Partial<StopWeightHistoryShot> = {}): StopWeight
 });
 
 describe("calculateStopWeightTip", () => {
-  it("nutzt den typischen Nachlauf gleicher Bohne, Mühle und gleichen Mahlgrads", () => {
+  it("nutzt den durchschnittlichen Nachlauf gleicher Bohne und gleichen Mahlgrads", () => {
     const result = calculateStopWeightTip({
       beanId: "bean-1",
-      grinderId: "grinder-1",
       grindSetting: "5,0",
       targetFinalWeightGrams: 40,
       history: [
@@ -39,7 +37,6 @@ describe("calculateStopWeightTip", () => {
   it("filtert deutliche Ausreißer aus mehreren passenden Shots", () => {
     const result = calculateStopWeightTip({
       beanId: "bean-1",
-      grinderId: "grinder-1",
       grindSetting: "5",
       targetFinalWeightGrams: 36,
       history: [
@@ -57,13 +54,12 @@ describe("calculateStopWeightTip", () => {
   it("rechnet den Nachlauf ähnlicher Shots proportional auf das Zielgewicht um", () => {
     const result = calculateStopWeightTip({
       beanId: "bean-1",
-      grinderId: "grinder-1",
       grindSetting: "6",
       targetFinalWeightGrams: 45,
       history: [
         historyShot({ bean_id: "bean-1", grind_setting: "4", stop_weight_grams: 34, final_yield_grams: 36 }),
-        historyShot({ id: "unrelated-1", bean_id: "bean-2", grinder_id: "grinder-2", stop_weight_grams: 30, final_yield_grams: 36 }),
-        historyShot({ id: "unrelated-2", bean_id: "bean-3", grinder_id: "grinder-3", stop_weight_grams: 30, final_yield_grams: 36 }),
+        historyShot({ id: "unrelated-1", bean_id: "bean-2", stop_weight_grams: 30, final_yield_grams: 36 }),
+        historyShot({ id: "unrelated-2", bean_id: "bean-3", stop_weight_grams: 30, final_yield_grams: 36 }),
       ],
     });
 
@@ -79,7 +75,6 @@ describe("calculateStopWeightTip", () => {
   it("liefert ohne Historie den transparenten Dreisatz-Startwert", () => {
     expect(calculateStopWeightTip({
       beanId: "bean-1",
-      grinderId: null,
       grindSetting: null,
       targetFinalWeightGrams: 36,
       history: [],
@@ -95,7 +90,6 @@ describe("calculateStopWeightTip", () => {
   it("zeigt ohne valides finales Zielgewicht keinen Tipp", () => {
     expect(calculateStopWeightTip({
       beanId: "bean-1",
-      grinderId: "grinder-1",
       grindSetting: "5",
       targetFinalWeightGrams: null,
       history: [historyShot()],

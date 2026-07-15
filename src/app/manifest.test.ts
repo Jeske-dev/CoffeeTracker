@@ -21,6 +21,10 @@ describe("Dialed PWA", () => {
     for (const icon of value.icons ?? []) expect(existsSync(resolve("public", icon.src.replace(/^\//, "")))).toBe(true);
     expect(existsSync(resolve("public/icons/apple-touch-icon.png"))).toBe(true);
     expect(existsSync(resolve("src/app/favicon.ico"))).toBe(true);
+    const browserIcon = readFileSync(resolve("src/app/icon.svg"), "utf8");
+    expect(browserIcon).toContain('fill="#fff"');
+    expect(browserIcon).toContain('stroke="#000"');
+    expect(browserIcon).toContain("M10.165 6.598");
   });
 
   it("cached keine Dokumente, privaten App-Routen oder schreibenden Requests", () => {

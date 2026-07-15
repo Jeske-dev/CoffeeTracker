@@ -104,7 +104,6 @@ export async function loadNewShotData(userId: string, provided?: Client) {
     const stopWeightHistory: StopWeightHistoryShot[] = recentShots.map((shot) => ({
       id: shot.id,
       bean_id: shot.bean_id,
-      grinder_id: shot.grinder_id,
       grind_setting: shot.grind_setting,
       stop_weight_grams: shot.stop_weight_grams,
       final_yield_grams: shot.final_yield_grams,

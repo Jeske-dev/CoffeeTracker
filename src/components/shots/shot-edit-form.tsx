@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { updateShot } from "@/features/data/actions";
 import {
   createShotEditDefaults,
@@ -38,7 +37,7 @@ export function ShotEditForm({ userId, shot, beans, equipment }: { userId: strin
   const { invalidateShotData } = usePrivateCache();
   const [pending, startTransition] = useTransition();
   const selectableBeans = useMemo(() => getSelectableBeans(beans, shot.bean_id), [beans, shot.bean_id]);
-  const { machines, grinders, baskets } = useMemo(() => groupShotEquipment(equipment, shot), [equipment, shot]);
+  const { machines, grinders } = useMemo(() => groupShotEquipment(equipment, shot), [equipment, shot]);
   const defaults = useMemo(() => createShotEditDefaults(shot), [shot]);
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<ShotEditInput>({
     resolver: zodResolver(shotEditSchema),
@@ -61,21 +60,20 @@ export function ShotEditForm({ userId, shot, beans, equipment }: { userId: strin
     router.push(`/app/shots/${shot.id}`);
   });
 
-  return <form onSubmit={handleSubmit(submit)} className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden">
+  return <form id="shot-edit-form" aria-label="Shot bearbeiten" aria-busy={pending} onSubmit={handleSubmit(submit)} className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)] overflow-hidden">
     <input type="hidden" {...register("beanId")} />
     <input type="hidden" {...register("machineId", nullableString)} />
     <input type="hidden" {...register("grinderId", nullableString)} />
     <input type="hidden" {...register("basketId", nullableString)} />
-    <div className="scrollbar-none min-h-0 overflow-y-auto px-6 py-6 pb-8"><div className="mx-auto max-w-[680px]">
+    <div className="form-scroll-region px-6 py-6 pb-[env(safe-area-inset-bottom)]"><div className="mx-auto max-w-[680px]">
       <ShotSetupSection fields={{
         shotAt: { value: <input aria-label="Zeitpunkt" type="datetime-local" className="h-9 w-full bg-transparent font-bold outline-none" {...register("shotAt")} /> },
         bean: { value: <BeanSelectControl label="Bohne" options={selectableBeans} value={values.beanId} onValueChange={(value) => setValue("beanId", value, { shouldDirty: true, shouldValidate: true })} /> },
-        machine: { value: <SelectControl label="Maschine" equipmentType="machine" options={machines} value={values.machineId} onValueChange={(value) => setValue("machineId", value, { shouldDirty: true, shouldValidate: true })} /> },
-        grinder: { value: <SelectControl label="Mühle" equipmentType="grinder" options={grinders} value={values.grinderId} onValueChange={(value) => setValue("grinderId", value, { shouldDirty: true, shouldValidate: true })} /> },
         grind: { value: <GrindControl value={values.grindSetting} registration={register("grindSetting", nullableString)} onStep={(delta) => setValue("grindSetting", stepGrindSetting(values.grindSetting, delta), { shouldDirty: true })} /> },
         dose: { value: <NumberControl ariaLabel="Dosis" unit="g" value={values.doseGrams} registration={register("doseGrams", requiredNumber)} onStep={(delta) => setValue("doseGrams", stepNumericValue(values.doseGrams, delta), { shouldDirty: true, shouldValidate: true })} /> },
         prepTools: { value: <PrepToolsControl value={values.prepTools ?? []} onToggle={togglePrepTool} /> },
-        basket: { value: <SelectControl label="Sieb" equipmentType="basket" options={baskets} value={values.basketId} onValueChange={(value) => setValue("basketId", value, { shouldDirty: true, shouldValidate: true })} /> },
+        machine: { value: <SelectControl label="Maschine" equipmentType="machine" options={machines} value={values.machineId} onValueChange={(value) => setValue("machineId", value, { shouldDirty: true, shouldValidate: true })} /> },
+        grinder: { value: <SelectControl label="Mühle" equipmentType="grinder" options={grinders} value={values.grinderId} onValueChange={(value) => setValue("grinderId", value, { shouldDirty: true, shouldValidate: true })} /> },
       }} />
       <ShotExtractionFormSection
         timeValue={values.extractionSeconds}
@@ -112,11 +110,8 @@ export function ShotEditForm({ userId, shot, beans, equipment }: { userId: strin
         errors.stopWeightGrams?.message,
         errors.finalYieldGrams?.message,
       ]} />
+      <div aria-hidden="true" data-form-end-spacer className="h-20" />
     </div></div>
-    <footer className="z-10 flex gap-2 border-t border-black bg-white px-6 pt-3 pb-[calc(14px+env(safe-area-inset-bottom))]">
-      <Button type="button" variant="secondary" onClick={() => router.back()} className="h-12 flex-1">Abbrechen</Button>
-      <Button disabled={pending} type="submit" className="h-12 flex-1 bg-black text-white">{pending ? "Speichert ..." : "Änderungen speichern"}</Button>
-    </footer>
   </form>;
 }
 
