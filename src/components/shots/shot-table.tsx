@@ -3,9 +3,11 @@
 import { useRouter } from "next/navigation";
 import { CalendarDays, CircleStop, Coffee, Gauge, Scale, Timer, type LucideIcon } from "lucide-react";
 import { BeanIcon, EntityIconFrame } from "@/components/entities/entity-icons";
-import { formatDateTime, formatShortDate, formatTime, formatWeight } from "@/lib/formatting";
+import { formatDateTime, formatTime, formatWeight } from "@/lib/formatting";
 import type { ShotSummary } from "@/types/domain";
 import { TasteBadge } from "./shot-visuals";
+
+const tableDateFormatter = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", timeZone: "Europe/Berlin" });
 
 export function ShotTable({ shots }: { shots: ShotSummary[] }) {
   const router = useRouter();
@@ -13,7 +15,7 @@ export function ShotTable({ shots }: { shots: ShotSummary[] }) {
   const openShot = (id: string) => router.push(`/app/shots/${id}`);
   const prefetchShot = (id: string) => router.prefetch(`/app/shots/${id}`);
 
-  return <div className="overflow-hidden border border-black bg-white">
+  return <div className="overflow-hidden border-y border-black bg-white">
     <table className="w-full table-fixed border-collapse text-left text-xs">
       <colgroup>
         <col style={{ width: "30%" }} />
@@ -46,19 +48,19 @@ export function ShotTable({ shots }: { shots: ShotSummary[] }) {
                 openShot(shot.id);
               }
             }}
-            className="group cursor-pointer border-b last:border-0 hover:bg-[var(--crema-surface-low)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-black"
+            className="group cursor-pointer border-b border-[var(--crema-outline-soft)] last:border-b-0 hover:bg-[var(--crema-surface-low)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-black"
           >
-            <td className="px-1.5 py-2.5">
+            <td className="px-1 py-4">
               <div data-bean-tone={tone.key} title={shot.beans?.name ?? "Unbekannte Bohne"} className="flex min-w-0 items-center gap-1.5">
                 <EntityIconFrame style={tone.style}><BeanIcon origin={shot.beans?.origin} /></EntityIconFrame>
-                <time dateTime={shot.shot_at} className="min-w-0 truncate text-[10px] font-bold text-[var(--dialed-text-secondary)]">{formatShortDate(shot.shot_at)}</time>
+                <time dateTime={shot.shot_at} className="min-w-0 truncate text-[11px] font-semibold tabular text-[var(--dialed-text-secondary)]">{formatTableDate(shot.shot_at)}</time>
               </div>
             </td>
             <CompactCell label="Mahlgrad" value={shot.grind_setting ?? "—"} />
             <CompactCell label="Zeit" value={compactUnit(formatTime(shot.extraction_seconds), "s")} unit="s" />
             <CompactCell label="Stop-Gewicht" value={compactUnit(formatWeight(shot.stop_weight_grams), "g")} unit="g" />
             <CompactCell label="Finales Gewicht" value={compactUnit(formatWeight(shot.final_yield_grams), "g")} unit="g" />
-            <td className="px-0.5 py-2.5 text-center"><TasteBadge taste={shot.taste} iconOnly /></td>
+            <td className="px-0.5 py-4 text-center"><TasteBadge taste={shot.taste} iconOnly /></td>
           </tr>;
         })}
       </tbody>
@@ -67,18 +69,32 @@ export function ShotTable({ shots }: { shots: ShotSummary[] }) {
 }
 
 function ColumnHeader({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
-  return <th scope="col" title={label} className="px-0.5 py-2.5 text-center font-bold">
-    <span className="inline-grid place-items-center"><Icon aria-hidden="true" className="size-3.5" /><span className="sr-only">{label}</span></span>
+  return <th scope="col" title={label} className="px-0.5 py-3 text-center font-bold">
+    <span className="inline-grid place-items-center"><Icon aria-hidden="true" className="size-4" /><span className="sr-only">{label}</span></span>
   </th>;
 }
 
 function CompactCell({ label, value, unit }: { label: string; value: string; unit?: string }) {
   const accessibleValue = value === "—" || !unit ? value : `${value} ${unit}`;
-  return <td aria-label={`${label}: ${accessibleValue}`} title={`${label}: ${accessibleValue}`} className="truncate px-0.5 py-2.5 text-center text-[10px] font-bold tabular">{value}</td>;
+  return <td
+    aria-label={`${label}: ${accessibleValue}`}
+    title={`${label}: ${accessibleValue}`}
+    className="px-0 py-4 text-center text-[11px] font-semibold tabular min-[360px]:text-xs"
+  >
+    <span className="inline-flex max-w-full items-baseline justify-center whitespace-nowrap">
+      {value}
+      {value !== "—" && unit ? <><span aria-hidden="true"> </span><span className="text-[9px] text-[var(--dialed-text-secondary)] min-[360px]:text-[10px]">{unit}</span></> : null}
+    </span>
+  </td>;
 }
 
 function compactUnit(value: string, unit: "g" | "s") {
   return value === "—" ? value : value.replace(` ${unit}`, "");
+}
+
+function formatTableDate(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "—" : tableDateFormatter.format(date);
 }
 
 function beanTone(beanId: string) {

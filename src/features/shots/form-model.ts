@@ -132,6 +132,11 @@ export function stepGrindSetting(value: string | null, delta: number) {
   return (current + delta).toFixed(1);
 }
 
+export function stepNumericValue(value: number | null | undefined, delta: number, minimum = 0) {
+  const current = typeof value === "number" && Number.isFinite(value) ? value : minimum;
+  return Math.max(minimum, Math.round((current + delta) * 10) / 10);
+}
+
 export function calculateShotInputScore(values: ShotInput) {
   return calculateDialedScore({
     doseGrams: values.doseGrams,

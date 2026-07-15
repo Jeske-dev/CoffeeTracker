@@ -6,25 +6,26 @@ import { formatWeight } from "@/lib/formatting";
 import { TASTE_LEVELS, TASTE_LEVEL_VALUES, tasteLevelFromShot, type TasteLevel } from "@/lib/taste-scale";
 import { cn } from "@/lib/utils";
 import type { ShotTaste } from "@/types/domain";
+import { shotSelectionToneClasses } from "./shot-selection-tone";
 
 const tasteBadgeOptions = [
   {
     value: "sour" as const,
     label: "Sauer",
     icon: Citrus,
-    badge: "border border-black bg-white text-black",
+    badge: shotSelectionToneClasses.far,
   },
   {
     value: "balanced" as const,
     label: "Ausgewogen",
     icon: Scale,
-    badge: "border border-black bg-black text-white",
+    badge: shotSelectionToneClasses.optimal,
   },
   {
     value: "bitter" as const,
     label: "Bitter",
     icon: Coffee,
-    badge: "border border-black bg-[#525252] text-white",
+    badge: shotSelectionToneClasses.far,
   },
 ] as const;
 
@@ -34,7 +35,7 @@ export function TasteBadge({ taste, className, iconOnly = false }: { taste: Shot
   const label = option?.label ?? "Offen";
 
   return <span className={cn(
-    "inline-flex min-h-7 shrink-0 items-center gap-1.5 text-xs font-bold",
+    "inline-flex min-h-7 shrink-0 items-center gap-1.5 border text-xs font-bold",
     iconOnly ? "size-7 justify-center p-0" : "px-2.5 py-1 text-[10px] tracking-[.08em] uppercase",
     option?.badge ?? "border bg-[var(--dialed-surface-subtle)] text-[var(--dialed-text-muted)]",
     className,
@@ -45,11 +46,11 @@ export function TasteBadge({ taste, className, iconOnly = false }: { taste: Shot
 }
 
 const tasteScalePresentation: Record<TasteLevel, { icon: typeof Scale; active: string }> = {
-  too_sour: { icon: Citrus, active: "border-black bg-[var(--crema-surface-high)] text-black" },
-  slightly_sour: { icon: Minus, active: "border-black bg-[var(--crema-surface-mid)] text-black" },
-  balanced: { icon: Scale, active: "border-black bg-black text-white" },
-  slightly_bitter: { icon: Plus, active: "border-black bg-[#757575] text-white" },
-  too_bitter: { icon: Coffee, active: "border-black bg-[#1a1c1c] text-white" },
+  too_sour: { icon: Citrus, active: shotSelectionToneClasses.far },
+  slightly_sour: { icon: Minus, active: shotSelectionToneClasses.near },
+  balanced: { icon: Scale, active: shotSelectionToneClasses.optimal },
+  slightly_bitter: { icon: Plus, active: shotSelectionToneClasses.near },
+  too_bitter: { icon: Coffee, active: shotSelectionToneClasses.far },
 };
 
 export function TasteScale({
@@ -125,7 +126,7 @@ export function YieldInputGraphic({
       <span className="text-xs text-[var(--dialed-text-muted)]">Stop bis Tasse</span>
     </div>
     <YieldBar stopWeight={stopWeight} finalWeight={finalWeight} />
-    <div className="mt-3 grid grid-cols-2 gap-2">
+    <div className="mt-3 grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">
       <WeightControl label="Stop-Gewicht" icon={<CircleStop aria-hidden="true" className="size-3.5" />} control={stopControl} />
       <WeightControl label="Finales Gewicht" icon={<Coffee aria-hidden="true" className="size-3.5" />} control={finalControl} />
     </div>

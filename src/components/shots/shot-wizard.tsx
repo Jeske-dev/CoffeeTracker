@@ -6,7 +6,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ChevronLeft, Info, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Info, WifiOff, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { saveShot } from "@/features/data/actions";
@@ -20,6 +20,7 @@ import {
   prepareShotSubmission,
   recommendationMatchesSetup,
   stepGrindSetting,
+  stepNumericValue,
 } from "@/features/shots/form-model";
 import { calculateStopWeightTip, type StopWeightHistoryShot } from "@/features/shots/stop-weight-tip";
 import { useShotDraft, type ShotFormStep } from "@/features/shots/use-shot-draft";
@@ -166,27 +167,38 @@ export function ShotWizard({
   const grindHint = matchesRecommendationSetup && targets.changed.grind && targets.grindSetting !== values.grindSetting
     ? <TargetHint value={targets.grindSetting ?? "–"} />
     : undefined;
-  return <div className="fixed inset-0 z-50 grid bg-[var(--dialed-surface)] min-[561px]:absolute">
+  return <div className="fixed inset-0 z-50 grid grid-rows-[auto_minmax(0,1fr)] bg-[var(--dialed-surface)] min-[561px]:absolute">
     <header className="border-b border-black bg-white px-6 pt-[calc(16px+env(safe-area-inset-top))] pb-4">
-      <div className="grid grid-cols-[44px_1fr_44px] items-center">
-        <button type="button" onClick={close} aria-label="Schließen" title="Schließen" className="grid size-11 place-items-center border border-black bg-white hover:bg-black hover:text-white"><X className="size-[18px]" /></button>
-        <h1 className="text-center font-display text-[22px] font-semibold">Neuer Shot</h1>
+      <div className="grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-2">
+        {step === 1
+          ? <button type="button" onClick={close} aria-label="Schließen" title="Schließen" className="grid size-11 place-items-center border border-black bg-white hover:bg-black hover:text-white"><X className="size-[18px]" /></button>
+          : <button type="button" onClick={() => setStep((current) => Math.max(1, current - 1) as ShotFormStep)} aria-label="Zurück" title="Zurück" className="grid size-11 place-items-center border border-black bg-white hover:bg-black hover:text-white"><ChevronLeft className="size-[18px]" /></button>}
+        <h1 className="truncate font-display text-xl font-semibold min-[380px]:text-[22px]">Neuer Shot</h1>
+        {step < 3
+          ? <Button key={`next-${step}`} type="button" onClick={() => void next()} className="h-11 gap-1.5 px-2 text-[10px]">Weiter<ChevronRight /></Button>
+          : <Button
+              type="submit"
+              form="new-shot-form"
+              aria-label={pending ? "Shot wird gespeichert" : isOnline ? "Shot speichern" : "Offline – Entwurf bleibt erhalten"}
+              disabled={pending || !isOnline}
+              className="h-11 w-11 gap-1.5 px-0 text-[10px] min-[380px]:w-auto min-[380px]:px-2"
+            >{isOnline ? <Check /> : <WifiOff />}<span className="hidden min-[380px]:inline">{pending ? "Speichert ..." : isOnline ? "Speichern" : "Offline"}</span></Button>}
       </div>
       <div className="mt-4 grid grid-cols-3 border border-black">{[1, 2, 3].map((item) => <span key={item} className={`h-1.5 border-r border-black last:border-r-0 ${item <= step ? "bg-black" : "bg-white"}`} />)}</div>
       <div className="mt-2 grid grid-cols-3 text-center text-[9px] font-semibold tracking-[.08em] text-[var(--dialed-text-muted)] uppercase">{["Rezept", "Extraktion", "Bewertung"].map((label, index) => <span key={label} className={step === index + 1 ? "text-black" : ""}>{label}</span>)}</div>
     </header>
-    <form onSubmit={handleSubmit(submit)} className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto]">
+    <form id="new-shot-form" onSubmit={handleSubmit(submit)} className="min-h-0 overflow-hidden">
       <input type="hidden" {...register("beanId")} />
       <input type="hidden" {...register("machineId", nullableString)} />
       <input type="hidden" {...register("grinderId", nullableString)} />
       <input type="hidden" {...register("basketId", nullableString)} />
-      <div className="scrollbar-none min-h-0 overflow-y-auto px-6 py-6 pb-8"><div className="mx-auto max-w-[680px]">
+      <div className="scrollbar-none h-full min-h-0 overflow-y-auto px-6 py-6 pb-[calc(32px+env(safe-area-inset-bottom))]"><div className="mx-auto max-w-[680px]">
         {step === 1 && <>
           <PageTitle>Rezept</PageTitle>
           <ShotRecipeSection fields={{
             bean: { value: <BeanSelectControl label="Bohne wählen" options={activeBeans} value={values.beanId} onValueChange={(value) => setValue("beanId", value, { shouldDirty: true, shouldValidate: true })} /> },
             grind: { value: <GrindControl value={values.grindSetting} registration={register("grindSetting", nullableString)} onStep={(delta) => setValue("grindSetting", stepGrindSetting(values.grindSetting, delta), { shouldDirty: true })} />, hint: grindHint },
-            dose: { value: <NumberControl ariaLabel="Dosis" unit="g" registration={register("doseGrams", requiredNumber)} />, hint: doseHint },
+            dose: { value: <NumberControl ariaLabel="Dosis" unit="g" value={values.doseGrams} registration={register("doseGrams", requiredNumber)} onStep={(delta) => setValue("doseGrams", stepNumericValue(values.doseGrams, delta), { shouldDirty: true, shouldValidate: true })} />, hint: doseHint },
             prepTools: { value: <PrepToolsControl value={values.prepTools ?? []} onToggle={togglePrepTool} /> },
           }} />
           <FormError text={errors.beanId?.message ?? errors.doseGrams?.message} />
@@ -195,11 +207,18 @@ export function ShotWizard({
         {step === 2 && <>
           <PageTitle>Extraktion</PageTitle>
           <ShotExtractionFormSection
+            timeValue={values.extractionSeconds}
             stopWeightGrams={values.stopWeightGrams}
             finalYieldGrams={values.finalYieldGrams}
             timeRegistration={register("extractionSeconds", nullableNumber)}
             stopRegistration={register("stopWeightGrams", nullableNumber)}
             finalYieldRegistration={register("finalYieldGrams", requiredNumber)}
+            onTimeChange={(value) => setValue("extractionSeconds", value, { shouldDirty: true, shouldValidate: true })}
+            onStopWeightStep={(delta) => {
+              const fallback = stopWeightTip?.recommendedStopWeightGrams ?? Math.max(0, (values.finalYieldGrams ?? 0) - 2);
+              setValue("stopWeightGrams", stepNumericValue(values.stopWeightGrams ?? fallback, delta), { shouldDirty: true, shouldValidate: true });
+            }}
+            onFinalYieldStep={(delta) => setValue("finalYieldGrams", stepNumericValue(values.finalYieldGrams, delta), { shouldDirty: true, shouldValidate: true })}
             stopTip={stopWeightTip}
           />
           <FormError text={errors.extractionSeconds?.message ?? errors.stopWeightGrams?.message ?? errors.finalYieldGrams?.message} />
@@ -221,12 +240,6 @@ export function ShotWizard({
           />
         </>}
       </div></div>
-      <footer className="flex gap-2.5 border-t border-black bg-white px-6 pt-3 pb-[calc(14px+env(safe-area-inset-bottom))]">
-        <Button type="button" variant="secondary" onClick={() => setStep((current) => Math.max(1, current - 1) as ShotFormStep)} className={`h-12 flex-1 ${step === 1 ? "invisible" : ""}`}><ChevronLeft />Zurück</Button>
-        {step < 3
-          ? <Button key={`next-${step}`} type="button" onClick={(event) => { event.preventDefault(); void next(); }} className="h-12 flex-1 bg-black text-white">Weiter</Button>
-          : <Button type="submit" disabled={pending || !isOnline} className="h-12 flex-1 bg-black text-white">{pending ? "Speichert ..." : isOnline ? "Shot speichern" : "Offline – Entwurf bleibt erhalten"}</Button>}
-      </footer>
     </form>
   </div>;
 }

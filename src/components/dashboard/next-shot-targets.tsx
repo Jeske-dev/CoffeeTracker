@@ -15,7 +15,9 @@ export function NextShotTargets({ recommendation, latestShot }: { recommendation
 }
 
 function TargetMetric({ icon, label, accessibleLabel = label, value, changed }: { icon: typeof Scale; label: string; accessibleLabel?: string; value: string; changed: boolean }) {
-  return <article aria-label={`${accessibleLabel}: ${value}`} className={`min-w-0 border-r px-3 py-4 last:border-r-0 ${changed ? "bg-[var(--crema-surface-mid)]" : "bg-white"}`}>
+  const status = value === "—" ? "Noch kein Zielwert" : changed ? "Neu empfohlen" : "Vom letzten Shot";
+  return <article aria-label={`${accessibleLabel}: ${value}. ${status}`} className={`min-w-0 border-r px-3 py-4 last:border-r-0 ${changed ? "bg-[var(--crema-surface-mid)]" : "bg-white"}`}>
     <DataMetric icon={icon} label={label} value={value} iconClassName="text-black" valueClassName="mt-2 text-base" />
+    <p className="mt-3 border-t border-black/15 pt-2 text-[8px] font-semibold leading-3 text-[var(--dialed-text-muted)] uppercase">{status}</p>
   </article>;
 }

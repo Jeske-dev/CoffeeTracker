@@ -9,13 +9,13 @@ import type { StopWeightTip } from "@/features/shots/stop-weight-tip";
 import { formatWeight } from "@/lib/formatting";
 import { PUCK_STATE_OPTIONS, SHOT_FLOW_OPTIONS } from "@/lib/shot-options";
 import type { Equipment, PuckState, ShotFlow, ShotTaste } from "@/types/domain";
-import { NumberControl, SegmentedControl } from "./shot-form-controls";
+import { NumberControl, SegmentedControl, TimeRulerControl } from "./shot-form-controls";
 import { puckStateIcons, shotFlowIcons } from "./shot-option-icons";
 import { ShotExtractionSection, ShotReviewSection } from "./shot-sections";
 import { TasteScale, YieldInputGraphic } from "./shot-visuals";
 
-const flowSegments = SHOT_FLOW_OPTIONS.map(({ value, label }) => [value, label, shotFlowIcons[value]] as const);
-const puckSegments = PUCK_STATE_OPTIONS.map(({ value, label }) => [value, label, puckStateIcons[value]] as const);
+const flowSegments = SHOT_FLOW_OPTIONS.map(({ value, label, tone }) => [value, label, shotFlowIcons[value], tone] as const);
+const puckSegments = PUCK_STATE_OPTIONS.map(({ value, label, tone }) => [value, label, puckStateIcons[value], tone] as const);
 
 export function ShotSetupSummary({
   machine,
@@ -37,18 +37,26 @@ export function ShotSetupSummary({
 }
 
 export function ShotExtractionFormSection({
+  timeValue,
   stopWeightGrams,
   finalYieldGrams,
   timeRegistration,
   stopRegistration,
   finalYieldRegistration,
+  onTimeChange,
+  onStopWeightStep,
+  onFinalYieldStep,
   stopTip,
 }: {
+  timeValue: number | null | undefined;
   stopWeightGrams: number | null;
   finalYieldGrams: number | null | undefined;
   timeRegistration: UseFormRegisterReturn;
   stopRegistration: UseFormRegisterReturn;
   finalYieldRegistration: UseFormRegisterReturn;
+  onTimeChange: (value: number | null) => void;
+  onStopWeightStep: (delta: number) => void;
+  onFinalYieldStep: (delta: number) => void;
   stopTip?: StopWeightTip | null;
 }) {
   return <ShotExtractionSection
@@ -56,13 +64,13 @@ export function ShotExtractionFormSection({
       <YieldInputGraphic
         stopWeight={stopWeightGrams}
         finalWeight={finalYieldGrams ?? null}
-        stopControl={<NumberControl ariaLabel="Stop-Gewicht" unit="g" registration={stopRegistration} />}
-        finalControl={<NumberControl ariaLabel="Finales Getränkgewicht" unit="g" registration={finalYieldRegistration} />}
+        stopControl={<NumberControl ariaLabel="Stop-Gewicht" unit="g" value={stopWeightGrams} registration={stopRegistration} onStep={onStopWeightStep} />}
+        finalControl={<NumberControl ariaLabel="Finales Getränkgewicht" unit="g" value={finalYieldGrams} registration={finalYieldRegistration} onStep={onFinalYieldStep} />}
       />
       {stopTip && <StopWeightTipCard tip={stopTip} />}
     </>}
     fields={{
-      time: { value: <NumberControl ariaLabel="Extraktionszeit" unit="s" registration={timeRegistration} /> },
+      time: { value: <TimeRulerControl value={timeValue} registration={timeRegistration} onValueChange={onTimeChange} /> },
     }}
   />;
 }

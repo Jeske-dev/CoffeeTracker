@@ -142,10 +142,6 @@ function DashboardChart({ data }: { data: DashboardData }) {
       <span>Horizontal: Zeit</span>
       <span>Vertikal: Ratio</span>
     </div>
-    <div className="mt-3 flex items-center gap-2 border-t pt-3 text-xs text-[var(--dialed-text-muted)]">
-      <i aria-hidden="true" className="size-3 shrink-0 border border-black bg-[var(--crema-surface-mid)]" />
-      <span>Optimal: 20–30 s · 1:1,9–1:2,1</span>
-    </div>
   </SectionCard>;
 }
 

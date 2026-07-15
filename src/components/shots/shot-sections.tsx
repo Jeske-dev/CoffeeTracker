@@ -42,7 +42,7 @@ type ReviewFields = {
 
 export function ShotField({ label, field }: { label: string; field: FieldValue }) {
   const Icon = field.icon;
-  return <div className={`${field.wide ? "col-span-2" : ""} min-w-0`} data-shot-field={label}>
+  return <div className={`${field.wide ? "min-[380px]:col-span-2" : ""} min-w-0`} data-shot-field={label}>
     <div className={`min-h-14 border-b px-0 py-2.5 transition-colors ${field.highlighted ? "border-black bg-[var(--crema-surface-mid)] px-2" : "border-[var(--crema-outline-soft)] bg-transparent"}`}>
       <small className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold tracking-[.08em] text-[var(--dialed-text-muted)] uppercase">{Icon && <Icon aria-hidden="true" className="size-3.5" />}{label}</small>
       <div className="min-w-0 text-xs">{field.value}</div>
@@ -52,7 +52,7 @@ export function ShotField({ label, field }: { label: string; field: FieldValue }
 }
 
 function FieldGrid({ fields }: { fields: Array<[string, FieldValue | undefined]> }) {
-  return <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+  return <div className="grid grid-cols-1 gap-x-4 gap-y-3 min-[380px]:grid-cols-2">
     {fields.flatMap(([label, field]) => field ? [<ShotField key={label} label={label} field={field} />] : [])}
   </div>;
 }

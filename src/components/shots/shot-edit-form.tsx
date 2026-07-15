@@ -14,6 +14,7 @@ import {
   getSelectableBeans,
   groupShotEquipment,
   stepGrindSetting,
+  stepNumericValue,
 } from "@/features/shots/form-model";
 import { usePrivateCache } from "@/hooks/use-private-cache";
 import { togglePrepTool as withToggledPrepTool, type PrepTool } from "@/lib/prep-tools";
@@ -60,7 +61,7 @@ export function ShotEditForm({ userId, shot, beans, equipment }: { userId: strin
     router.push(`/app/shots/${shot.id}`);
   });
 
-  return <form onSubmit={handleSubmit(submit)} className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto]">
+  return <form onSubmit={handleSubmit(submit)} className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden">
     <input type="hidden" {...register("beanId")} />
     <input type="hidden" {...register("machineId", nullableString)} />
     <input type="hidden" {...register("grinderId", nullableString)} />
@@ -72,16 +73,23 @@ export function ShotEditForm({ userId, shot, beans, equipment }: { userId: strin
         machine: { value: <SelectControl label="Maschine" equipmentType="machine" options={machines} value={values.machineId} onValueChange={(value) => setValue("machineId", value, { shouldDirty: true, shouldValidate: true })} /> },
         grinder: { value: <SelectControl label="Mühle" equipmentType="grinder" options={grinders} value={values.grinderId} onValueChange={(value) => setValue("grinderId", value, { shouldDirty: true, shouldValidate: true })} /> },
         grind: { value: <GrindControl value={values.grindSetting} registration={register("grindSetting", nullableString)} onStep={(delta) => setValue("grindSetting", stepGrindSetting(values.grindSetting, delta), { shouldDirty: true })} /> },
-        dose: { value: <NumberControl ariaLabel="Dosis" unit="g" registration={register("doseGrams", requiredNumber)} /> },
+        dose: { value: <NumberControl ariaLabel="Dosis" unit="g" value={values.doseGrams} registration={register("doseGrams", requiredNumber)} onStep={(delta) => setValue("doseGrams", stepNumericValue(values.doseGrams, delta), { shouldDirty: true, shouldValidate: true })} /> },
         prepTools: { value: <PrepToolsControl value={values.prepTools ?? []} onToggle={togglePrepTool} /> },
         basket: { value: <SelectControl label="Sieb" equipmentType="basket" options={baskets} value={values.basketId} onValueChange={(value) => setValue("basketId", value, { shouldDirty: true, shouldValidate: true })} /> },
       }} />
       <ShotExtractionFormSection
+        timeValue={values.extractionSeconds}
         stopWeightGrams={values.stopWeightGrams}
         finalYieldGrams={values.finalYieldGrams}
         timeRegistration={register("extractionSeconds", nullableNumber)}
         stopRegistration={register("stopWeightGrams", nullableNumber)}
         finalYieldRegistration={register("finalYieldGrams", requiredNumber)}
+        onTimeChange={(value) => setValue("extractionSeconds", value, { shouldDirty: true, shouldValidate: true })}
+        onStopWeightStep={(delta) => {
+          const fallback = Math.max(0, (values.finalYieldGrams ?? 0) - 2);
+          setValue("stopWeightGrams", stepNumericValue(values.stopWeightGrams ?? fallback, delta), { shouldDirty: true, shouldValidate: true });
+        }}
+        onFinalYieldStep={(delta) => setValue("finalYieldGrams", stepNumericValue(values.finalYieldGrams, delta), { shouldDirty: true, shouldValidate: true })}
       />
       <ShotReviewFormSection
         taste={values.taste}

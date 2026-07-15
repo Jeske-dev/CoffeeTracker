@@ -125,11 +125,21 @@ describe("vereinfachter ShotWizard", () => {
     expect(screen.getByRole("link", { name: "In den Einstellungen ändern" })).toHaveAttribute("href", "/app/setup");
   });
 
+  it("stellt die Dosis über Plus und Minus ein", () => {
+    render(<ShotWizard userId="user-1" beans={[bean]} equipment={[machine, grinder]} settings={settings} lastShot={lastShot} />);
+
+    const dose = screen.getByRole("spinbutton", { name: "Dosis" });
+    fireEvent.click(screen.getByRole("button", { name: "Dosis erhöhen" }));
+    expect(dose).toHaveValue(18.1);
+    fireEvent.click(screen.getByRole("button", { name: "Dosis verringern" }));
+    expect(dose).toHaveValue(18);
+  });
+
   it("öffnet nach Extraktion die vereinfachte Bewertung, ohne zu speichern", async () => {
     render(<ShotWizard userId="user-1" beans={[bean]} equipment={[]} settings={null} lastShot={null} />);
     fireEvent.click(screen.getByRole("button", { name: "Weiter" }));
     expect((await screen.findAllByRole("heading", { name: "Extraktion" })).length).toBeGreaterThan(0);
-    fireEvent.change(screen.getByRole("spinbutton", { name: "Extraktionszeit" }), { target: { value: "28.5" } });
+    fireEvent.change(screen.getByRole("slider", { name: "Extraktionszeit" }), { target: { value: "28.5" } });
     fireEvent.click(screen.getByRole("button", { name: "Weiter" }));
     expect((await screen.findAllByRole("heading", { name: "Bewertung" })).length).toBeGreaterThan(0);
     expect(mocks.saveShot).not.toHaveBeenCalled();
@@ -144,11 +154,25 @@ describe("vereinfachter ShotWizard", () => {
     expect((await screen.findAllByRole("heading", { name: "Extraktion" })).length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: /Timer/i })).not.toBeInTheDocument();
     const weightGraphic = screen.getByLabelText(/Gewichtsverlauf:/);
-    expect(within(weightGraphic).getByRole("spinbutton", { name: "Stop-Gewicht" })).toBeInTheDocument();
-    expect(within(weightGraphic).getByRole("spinbutton", { name: "Finales Getränkgewicht" })).toBeInTheDocument();
+    const stopWeight = within(weightGraphic).getByRole("spinbutton", { name: "Stop-Gewicht" });
+    const finalWeight = within(weightGraphic).getByRole("spinbutton", { name: "Finales Getränkgewicht" });
+    expect(stopWeight).toBeInTheDocument();
+    expect(finalWeight).toBeInTheDocument();
+    fireEvent.click(within(weightGraphic).getByRole("button", { name: "Stop-Gewicht erhöhen" }));
+    expect(stopWeight).toHaveValue(34.1);
+    fireEvent.click(within(weightGraphic).getByRole("button", { name: "Stop-Gewicht verringern" }));
+    expect(stopWeight).toHaveValue(34);
+    fireEvent.click(within(weightGraphic).getByRole("button", { name: "Finales Getränkgewicht erhöhen" }));
+    expect(finalWeight).toHaveValue(36.1);
+    fireEvent.click(within(weightGraphic).getByRole("button", { name: "Finales Getränkgewicht verringern" }));
+    expect(finalWeight).toHaveValue(36);
     expect(screen.queryByText("Brew Ratio")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Stopptipp: bei 34,0 g stoppen")).toHaveTextContent("1 Shot mit gleicher Bohne und gleichem Mahlgrad");
-    const extractionTime = screen.getByRole("spinbutton", { name: "Extraktionszeit" });
+    const extractionTime = screen.getByRole("slider", { name: "Extraktionszeit" });
+    expect(extractionTime).toHaveAttribute("step", "0.5");
+    fireEvent.change(extractionTime, { target: { value: "28.5" } });
+    expect(extractionTime).toHaveValue("28.5");
+    expect(screen.getByText("28,5 s")).toBeInTheDocument();
     expect(weightGraphic.compareDocumentPosition(extractionTime) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
@@ -158,7 +182,7 @@ describe("vereinfachter ShotWizard", () => {
     fireEvent(window, new Event("offline"));
     fireEvent.click(screen.getByRole("button", { name: "Weiter" }));
     expect((await screen.findAllByRole("heading", { name: "Extraktion" })).length).toBeGreaterThan(0);
-    fireEvent.change(screen.getByRole("spinbutton", { name: "Extraktionszeit" }), { target: { value: "30" } });
+    fireEvent.change(screen.getByRole("slider", { name: "Extraktionszeit" }), { target: { value: "30" } });
     fireEvent.click(screen.getByRole("button", { name: "Weiter" }));
     expect(await screen.findByRole("button", { name: "Offline – Entwurf bleibt erhalten" })).toBeDisabled();
   });
@@ -171,12 +195,49 @@ describe("vereinfachter ShotWizard", () => {
     expect(screen.queryByRole("button", { name: "Ausblenden" })).not.toBeInTheDocument();
   });
 
+  it("ordnet Bewertungsoptionen einheitlich nach optimal, leicht und deutlich abweichend ein", async () => {
+    render(<ShotWizard userId="user-1" beans={[bean]} equipment={[machine, grinder]} settings={settings} lastShot={lastShot} />);
+    fireEvent.click(screen.getByRole("button", { name: "Weiter" }));
+    await screen.findByRole("slider", { name: "Extraktionszeit" });
+    fireEvent.click(screen.getByRole("button", { name: "Weiter" }));
+
+    const balanced = await screen.findByRole("button", { name: "Ausgewogen" });
+    const slightlySour = screen.getByRole("button", { name: "Leicht sauer" });
+    const tooSour = screen.getByRole("button", { name: "Zu sauer" });
+    fireEvent.click(balanced);
+    expect(balanced).toHaveClass("bg-black", "text-white");
+    fireEvent.click(slightlySour);
+    expect(slightlySour).toHaveClass("bg-[#757575]", "text-white");
+    fireEvent.click(tooSour);
+    expect(tooSour).toHaveClass("bg-[var(--crema-error-soft)]", "text-[var(--crema-error)]");
+
+    const evenFlow = screen.getByRole("button", { name: "Gleichmäßig" });
+    const minorFlow = screen.getByRole("button", { name: "Leichtes Channeling" });
+    const strongFlow = screen.getByRole("button", { name: "Starkes Channeling" });
+    fireEvent.click(evenFlow);
+    expect(evenFlow).toHaveClass("bg-black", "text-white");
+    fireEvent.click(minorFlow);
+    expect(minorFlow).toHaveClass("bg-[#757575]", "text-white");
+    fireEvent.click(strongFlow);
+    expect(strongFlow).toHaveClass("bg-[var(--crema-error-soft)]", "text-[var(--crema-error)]");
+
+    const idealPuck = screen.getByRole("button", { name: "Normal" });
+    const wetPuck = screen.getByRole("button", { name: "Nass" });
+    const stuckPuck = screen.getByRole("button", { name: "Festhängend" });
+    fireEvent.click(idealPuck);
+    expect(idealPuck).toHaveClass("bg-black", "text-white");
+    fireEvent.click(wetPuck);
+    expect(wetPuck).toHaveClass("bg-[#757575]", "text-white");
+    fireEvent.click(stuckPuck);
+    expect(stuckPuck).toHaveClass("bg-[var(--crema-error-soft)]", "text-[var(--crema-error)]");
+  });
+
   it("nutzt fünf Geschmacksstufen und öffnet nach dem Speichern das Dashboard", async () => {
     mocks.saveShot.mockResolvedValue({ ok: true, message: "gespeichert", id: "66666666-6666-4666-8666-666666666666", score: 88, coverage: 100 });
     render(<ShotWizard userId="user-1" beans={[bean]} equipment={[machine, grinder]} settings={settings} lastShot={lastShot} />);
     fireEvent.click(screen.getByRole("button", { name: "Weiter" }));
-    await screen.findByRole("spinbutton", { name: "Extraktionszeit" });
-    fireEvent.change(screen.getByRole("spinbutton", { name: "Extraktionszeit" }), { target: { value: "29" } });
+    await screen.findByRole("slider", { name: "Extraktionszeit" });
+    fireEvent.change(screen.getByRole("slider", { name: "Extraktionszeit" }), { target: { value: "29" } });
     fireEvent.click(screen.getByRole("button", { name: "Weiter" }));
     for (const taste of ["Zu sauer", "Leicht sauer", "Ausgewogen", "Leicht bitter", "Zu bitter"]) {
       const tasteButton = await screen.findByRole("button", { name: taste });

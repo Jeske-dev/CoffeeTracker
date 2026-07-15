@@ -39,7 +39,10 @@ export function SweetSpotChart({ series }: { series: TimeRatioSeries }) {
         }} />
         {points.length > 1 && <Line type="linear" dataKey="ratio" stroke="#757575" strokeWidth={1.5} strokeDasharray="3 4" dot={false} isAnimationActive={false} />}
         <Scatter data={points} dataKey="ratio" name="Shots" isAnimationActive={false}>
-          {points.map((point) => <Cell key={point.id} fill={point.taste ? TASTE_COLORS[point.taste] : "#a3a3a3"} stroke="#000" strokeWidth={1} />)}
+          {points.map((point, index) => {
+            const opacity = points.length === 1 ? 1 : 0.25 + (index / (points.length - 1)) * 0.75;
+            return <Cell key={point.id} fill={point.taste ? TASTE_COLORS[point.taste] : "#a3a3a3"} fillOpacity={opacity} stroke="#000" strokeOpacity={opacity} strokeWidth={1} />;
+          })}
         </Scatter>
       </ComposedChart>
     </ResponsiveContainer>

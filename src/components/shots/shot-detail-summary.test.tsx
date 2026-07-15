@@ -75,4 +75,20 @@ describe("Shot-Detailzusammenfassung", () => {
     expect(screen.queryByText("Gesamtbewertung")).not.toBeInTheDocument();
     expect(container.innerHTML).not.toContain("NaN");
   });
+
+  it("nutzt dieselben Bewertungsfarben auch in der Detaildarstellung", () => {
+    const { container, rerender } = render(<ShotDetailSummary shot={{ ...shot, taste: "sour", overall_taste_rating: 1 }} />);
+    expect(screen.getByTitle("Zu sauer")).toHaveClass("bg-[var(--crema-error-soft)]", "text-[var(--crema-error)]");
+
+    rerender(<ShotMoreDetails
+      shot={{ ...shot, flow: "channeling", puck: "stuck" }}
+      machine={null}
+      grinder={null}
+      basket={null}
+    />);
+    expect(container.querySelectorAll('[data-selection-tone="far"]')).toHaveLength(2);
+    for (const indicator of container.querySelectorAll('[data-selection-tone="far"] > span')) {
+      expect(indicator).toHaveClass("bg-[var(--crema-error-soft)]", "text-[var(--crema-error)]");
+    }
+  });
 });

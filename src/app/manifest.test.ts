@@ -13,6 +13,8 @@ describe("Dialed PWA", () => {
       scope: "/",
       display: "standalone",
       orientation: "portrait",
+      background_color: "#F9F9F9",
+      theme_color: "#F9F9F9",
       lang: "de-DE",
     });
     expect(value.icons).toHaveLength(3);

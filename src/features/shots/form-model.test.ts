@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Bean, Equipment, Shot, UserSettings } from "@/types/domain";
-import { createShotDefaults, createShotEditDefaults, groupShotEquipment, prepareShotSubmission, restoreShotDraft, stepGrindSetting } from "./form-model";
+import { createShotDefaults, createShotEditDefaults, groupShotEquipment, prepareShotSubmission, restoreShotDraft, stepGrindSetting, stepNumericValue } from "./form-model";
 
 const bean = { id: "bean-a", archived_at: null } as Bean;
 const shot = {
@@ -73,6 +73,12 @@ describe("Shot-Formularmodell", () => {
 
   it("akzeptiert beim Mahlen auch ein deutsches Dezimalkomma", () => {
     expect(stepGrindSetting("5,2", -0.1)).toBe("5.1");
+  });
+
+  it("stellt numerische Rezeptwerte in Zehntelschritten ein und unterschreitet null nicht", () => {
+    expect(stepNumericValue(18, 0.1)).toBe(18.1);
+    expect(stepNumericValue(18.1, -0.1)).toBe(18);
+    expect(stepNumericValue(0, -0.1)).toBe(0);
   });
 
   it("behält beim Bearbeiten den ursprünglichen Ziel-Snapshot", () => {

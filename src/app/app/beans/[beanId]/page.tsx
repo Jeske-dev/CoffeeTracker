@@ -11,8 +11,8 @@ import { BeanIcon, EntityIconFrame } from "@/components/entities/entity-icons";
 export default async function BeanDetail({ params }: PageProps<"/app/beans/[beanId]">) {
   const { beanId } = await params; const { supabase, userId } = await requireUser(); const { bean, shots: beanShots } = await loadBeanDetailData(userId, beanId, supabase);
   if (!bean) notFound();
-  return <div className="fixed inset-0 z-50 grid grid-rows-[auto_auto_1fr] bg-[var(--dialed-surface)] min-[561px]:absolute">
-    <header className="grid grid-cols-[44px_46px_minmax(0,1fr)] items-center gap-3 border-b border-black px-6 pt-[calc(16px+env(safe-area-inset-top))] pb-4">
+  return <div className="fixed inset-0 z-50 grid grid-rows-[auto_auto_minmax(0,1fr)] bg-[var(--dialed-surface)] min-[561px]:absolute">
+    <header className="grid grid-cols-[44px_46px_minmax(0,1fr)] items-center gap-3 border-b border-black bg-white px-6 pt-[calc(16px+env(safe-area-inset-top))] pb-4">
       <Link href="/app/beans" aria-label="Zurück" className="grid size-11 place-items-center border border-black bg-white hover:bg-black hover:text-white"><ArrowLeft className="size-4" /></Link>
       <EntityIconFrame size="lg"><BeanIcon origin={bean.origin} className="text-[22px] [&_svg]:size-5" /></EntityIconFrame>
       <div className="min-w-0"><p className="text-[10px] font-semibold tracking-[.08em] text-[var(--dialed-text-muted)] uppercase">Bohne bearbeiten</p><h1 className="truncate font-display text-[22px] font-semibold">{bean.name}</h1><p className="mt-0.5 truncate text-xs text-[var(--dialed-text-secondary)]">{bean.roaster}</p></div>
@@ -21,7 +21,7 @@ export default async function BeanDetail({ params }: PageProps<"/app/beans/[bean
       <BeanFact icon={<CalendarDays />} label={bean.roast_date ? `${roastAgeDays(bean.roast_date)} Tage seit Röstung` : "Röstdatum offen"} />
       <BeanFact icon={<Coffee />} label={`${beanShots.length} ${beanShots.length === 1 ? "Shot" : "Shots"}`} />
     </div>
-    <div className="relative min-h-0"><BeanForm userId={userId} bean={bean} archiveAction={<ArchiveButton userId={userId} id={bean.id} archived={Boolean(bean.archived_at)} />} /></div>
+    <div className="relative h-full min-h-0 overflow-hidden"><BeanForm userId={userId} bean={bean} archiveAction={<ArchiveButton userId={userId} id={bean.id} archived={Boolean(bean.archived_at)} />} /></div>
   </div>;
 }
 

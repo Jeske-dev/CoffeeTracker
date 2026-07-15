@@ -8,8 +8,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { BeanIcon, EntityIconFrame, EquipmentIcon } from "@/components/entities/entity-icons";
+import { formatTime } from "@/lib/formatting";
 import { PREP_TOOLS, type PrepTool } from "@/lib/prep-tools";
+import type { ShotSelectionTone } from "@/lib/shot-options";
 import type { Bean, Equipment, EquipmentType } from "@/types/domain";
+import { shotSelectionToneClasses } from "./shot-selection-tone";
 
 const isBlank = (value: unknown) => value === "" || value === null || value === undefined;
 
@@ -17,8 +20,84 @@ export const nullableString = { setValueAs: (value: unknown) => isBlank(value) ?
 export const nullableNumber = { setValueAs: (value: unknown) => isBlank(value) ? null : Number(value) };
 export const requiredNumber = { setValueAs: (value: unknown) => isBlank(value) ? undefined : Number(value) };
 
-export function NumberControl({ ariaLabel, unit, registration }: { ariaLabel: string; unit: string; registration: UseFormRegisterReturn }) {
-  return <div className="flex h-10 items-center gap-2"><input aria-label={ariaLabel} type="number" inputMode="decimal" step="0.1" className="min-w-0 flex-1 bg-transparent text-base font-semibold tabular outline-none" {...registration} /><span className="text-[10px] font-semibold tracking-[.08em] text-[var(--dialed-text-muted)] uppercase">{unit}</span></div>;
+export function NumberControl({
+  ariaLabel,
+  unit,
+  registration,
+  value,
+  onStep,
+}: {
+  ariaLabel: string;
+  unit: string;
+  registration: UseFormRegisterReturn;
+  value?: number | null;
+  onStep?: (delta: number) => void;
+}) {
+  if (onStep) {
+    return <div className="grid grid-cols-[36px_minmax(0,1fr)_36px] items-center gap-1">
+      <button type="button" aria-label={`${ariaLabel} verringern`} title={`${ariaLabel} verringern`} onClick={() => onStep(-0.1)} className="grid size-9 place-items-center border border-black bg-white hover:bg-black hover:text-white"><Minus className="size-3.5" /></button>
+      <label className="flex min-w-0 items-center justify-center gap-1">
+        <input aria-label={ariaLabel} type="number" inputMode="decimal" step="0.1" value={value ?? ""} className="min-w-0 flex-1 bg-transparent text-center text-base font-semibold tabular outline-none" {...registration} />
+        <span className="shrink-0 text-[10px] font-semibold text-[var(--dialed-text-muted)] uppercase">{unit}</span>
+      </label>
+      <button type="button" aria-label={`${ariaLabel} erhöhen`} title={`${ariaLabel} erhöhen`} onClick={() => onStep(0.1)} className="grid size-9 place-items-center border border-black bg-white hover:bg-black hover:text-white"><Plus className="size-3.5" /></button>
+    </div>;
+  }
+
+  return <div className="flex h-10 items-center gap-2"><input aria-label={ariaLabel} type="number" inputMode="decimal" step="0.1" className="min-w-0 flex-1 bg-transparent text-base font-semibold tabular outline-none" {...registration} /><span className="text-[10px] font-semibold text-[var(--dialed-text-muted)] uppercase">{unit}</span></div>;
+}
+
+const defaultTimeRulerMaximum = 60;
+const timeRulerSegments = 12;
+
+export function TimeRulerControl({
+  value,
+  registration,
+  onValueChange,
+}: {
+  value: number | null | undefined;
+  registration: UseFormRegisterReturn;
+  onValueChange: (value: number | null) => void;
+}) {
+  const numericValue = typeof value === "number" && Number.isFinite(value) ? Math.max(0, value) : 0;
+  const maximum = Math.max(defaultTimeRulerMaximum, Math.ceil(numericValue / 30) * 30);
+  const progress = maximum > 0 ? Math.min(100, numericValue / maximum * 100) : 0;
+  const inputId = `${registration.name}-ruler`;
+
+  return <div className="pt-1">
+    <div className="flex items-baseline justify-between gap-3">
+      <span className="text-[10px] font-semibold text-[var(--dialed-text-muted)] uppercase">Sekunden</span>
+      <output htmlFor={inputId} aria-hidden="true" className="text-xl font-semibold tabular">{formatTime(value)}</output>
+    </div>
+    <div className="relative mt-1 h-11">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-3 top-1/2 h-px -translate-y-1/2 bg-[var(--crema-outline-soft)]">
+        <span className="block h-full bg-black" style={{ width: `${progress}%` }} />
+      </div>
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-3 top-1/2 flex -translate-y-1/2 items-center justify-between">
+        {Array.from({ length: timeRulerSegments + 1 }, (_, index) => <span key={index} className={`w-px bg-black ${index % 2 === 0 ? "h-3" : "h-1.5"}`} />)}
+      </div>
+      <input
+        id={inputId}
+        name={registration.name}
+        onBlur={registration.onBlur}
+        aria-label="Extraktionszeit"
+        aria-valuetext={value == null ? "Nicht angegeben" : formatTime(value)}
+        type="range"
+        min="0"
+        max={maximum}
+        step="0.5"
+        value={numericValue}
+        onChange={(event) => {
+          const nextValue = Number(event.currentTarget.value);
+          onValueChange(nextValue === 0 ? null : nextValue);
+        }}
+        className="time-ruler absolute inset-0 z-10 m-0 h-11 w-full"
+      />
+    </div>
+    <div aria-hidden="true" className="flex justify-between text-[9px] font-semibold tabular text-[var(--dialed-text-muted)]">
+      <span>0 s</span><span>{maximum / 2} s</span><span>{maximum} s</span>
+    </div>
+  </div>;
 }
 
 export function GrindControl({ value, registration, onStep }: { value: string | null; registration: UseFormRegisterReturn; onStep: (delta: number) => void }) {
@@ -87,7 +166,7 @@ export function SelectControl({
 }
 
 export function PrepToolsControl({ value, onToggle }: { value: string[]; onToggle: (tool: PrepTool) => void }) {
-  return <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+  return <div className="grid grid-cols-1 gap-1.5 min-[360px]:grid-cols-2 sm:grid-cols-3">
     {PREP_TOOLS.map((tool) => {
       const active = value.includes(tool);
       return <button type="button" key={tool} aria-pressed={active} onClick={() => onToggle(tool)} className={`flex min-h-11 min-w-0 items-center gap-2 border px-2.5 text-left text-[10px] font-semibold tracking-[.06em] uppercase ${active ? "border-black bg-black text-white" : "border-[var(--crema-outline-soft)] bg-white text-[var(--dialed-text-secondary)] hover:border-black"}`}>
@@ -98,6 +177,9 @@ export function PrepToolsControl({ value, onToggle }: { value: string[]; onToggl
   </div>;
 }
 
-export function SegmentedControl<T extends string>({ values, active, onSelect, columns = 3 }: { values: readonly (readonly [T, string, LucideIcon])[]; active: T | null; onSelect: (value: T) => void; columns?: number }) {
-  return <div className="grid border border-black" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>{values.map(([id, label, Icon]) => <button type="button" key={id} onClick={() => onSelect(id)} aria-pressed={active === id} className={`grid min-h-[72px] min-w-0 place-items-center content-center gap-1 border-r border-black px-1 py-2 text-center last:border-r-0 ${active === id ? "bg-black text-white" : "bg-white hover:bg-[var(--crema-surface-low)]"}`}><Icon className="size-4" /><span className="break-words text-[9px] font-semibold leading-3 tracking-[.04em] uppercase">{label}</span></button>)}</div>;
+export function SegmentedControl<T extends string>({ values, active, onSelect, columns = 3 }: { values: readonly (readonly [T, string, LucideIcon, ShotSelectionTone?])[]; active: T | null; onSelect: (value: T) => void; columns?: number }) {
+  return <div className="grid border border-black" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>{values.map(([id, label, Icon, tone]) => {
+    const selected = active === id;
+    return <button type="button" key={id} onClick={() => onSelect(id)} aria-pressed={selected} className={`grid min-h-[72px] min-w-0 place-items-center content-center gap-1 border-r border-black px-1 py-2 text-center last:border-r-0 ${selected ? shotSelectionToneClasses[tone ?? "optimal"] : "bg-white hover:bg-[var(--crema-surface-low)]"}`}><Icon className="size-4" /><span className="break-words text-[9px] font-semibold leading-3 tracking-[.04em] uppercase">{label}</span></button>;
+  })}</div>;
 }

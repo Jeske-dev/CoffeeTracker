@@ -3,9 +3,10 @@ import { EquipmentIdentity } from "@/components/entities/entity-icons";
 import { DataMetric, LabeledValue } from "@/components/ui/data-metric";
 import { SectionCard } from "@/components/ui/section-card";
 import { formatTime, formatWeight } from "@/lib/formatting";
-import { puckStateLabel, shotFlowLabel } from "@/lib/shot-options";
+import { puckStateLabel, puckStateTone, shotFlowLabel, shotFlowTone, type ShotSelectionTone } from "@/lib/shot-options";
 import type { Equipment, ShotWithBean } from "@/types/domain";
 import { puckStateIcons, shotFlowIcons } from "./shot-option-icons";
+import { shotSelectionToneClasses } from "./shot-selection-tone";
 import { TasteScale, YieldFlowGraphic } from "./shot-visuals";
 
 export function ShotDetailSummary({ shot }: { shot: ShotWithBean }) {
@@ -49,8 +50,8 @@ export function ShotMoreDetails({
       <EntityDetail label="Mühle"><EquipmentIdentity equipment={grinder} type="grinder" fallback="Nicht angegeben" /></EntityDetail>
       {basket && <EntityDetail label="Sieb"><EquipmentIdentity equipment={basket} type="basket" fallback="Nicht angegeben" /></EntityDetail>}
       <DetailRow icon={ListChecks} label="Puck-Prep" value={prepTools} />
-      <DetailRow icon={FlowIcon} label="Extraktionsbild" value={shotFlowLabel(shot.flow)} />
-      <DetailRow icon={PuckIcon} label="Puck" value={puckStateLabel(shot.puck)} />
+      <DetailRow icon={FlowIcon} label="Extraktionsbild" value={shotFlowLabel(shot.flow)} tone={shotFlowTone(shot.flow)} />
+      <DetailRow icon={PuckIcon} label="Puck" value={puckStateLabel(shot.puck)} tone={puckStateTone(shot.puck)} />
       <DetailRow icon={NotebookText} label="Notiz" value={shot.notes || "Keine Notiz"} wide />
     </div>
   </SectionCard>;
@@ -60,9 +61,9 @@ function EntityDetail({ label, children }: { label: string; children: React.Reac
   return <LabeledValue label={label} className="border-t px-5 py-4 sm:odd:border-r">{children}</LabeledValue>;
 }
 
-function DetailRow({ icon: Icon, label, value, wide = false }: { icon: LucideIcon; label: string; value: string; wide?: boolean }) {
-  return <div className={`${wide ? "sm:col-span-2" : "sm:odd:border-r"} grid min-w-0 grid-cols-[32px_minmax(0,1fr)] items-start gap-3 border-t px-5 py-4`}>
-    <span className="grid size-8 place-items-center border bg-[var(--dialed-surface-subtle)] text-black"><Icon aria-hidden="true" className="size-4" /></span>
+function DetailRow({ icon: Icon, label, value, tone, wide = false }: { icon: LucideIcon; label: string; value: string; tone?: ShotSelectionTone | null; wide?: boolean }) {
+  return <div data-selection-tone={tone ?? undefined} className={`${wide ? "sm:col-span-2" : "sm:odd:border-r"} grid min-w-0 grid-cols-[32px_minmax(0,1fr)] items-start gap-3 border-t px-5 py-4`}>
+    <span className={`grid size-8 place-items-center border ${tone ? shotSelectionToneClasses[tone] : "bg-[var(--dialed-surface-subtle)] text-black"}`}><Icon aria-hidden="true" className="size-4" /></span>
     <DataMetric label={label} value={value} truncateValue={false} valueClassName="mt-1 whitespace-normal text-xs leading-5" />
   </div>;
 }

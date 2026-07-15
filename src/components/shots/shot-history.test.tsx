@@ -35,59 +35,38 @@ const makeShot = (id: string, taste: "balanced" | "sour" | "bitter", time: numbe
 });
 
 describe("Shot-Historie", () => {
-  it("zeigt in der Kartenansicht die Kernwerte ohne Filter oder Score", () => {
-    render(<ShotHistory shots={[makeShot("1", "balanced", 28, 36)]} />);
-
-    expect(screen.queryByRole("button", { name: "Sauer" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Sweet Spot" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /balanced bean/ })).toBeInTheDocument();
-    expect(screen.getByLabelText("Flagge Äthiopien")).toBeInTheDocument();
-    expect(screen.getByText("Mahlgrad")).toBeInTheDocument();
-    expect(screen.getByText("2.4")).toBeInTheDocument();
-    expect(screen.getByText("Zeit")).toBeInTheDocument();
-    expect(screen.queryByText("Extraktionszeit")).not.toBeInTheDocument();
-    expect(screen.getByText("28,0 s")).toBeInTheDocument();
-    expect(screen.getByText("34 / 36 g")).toBeInTheDocument();
-    expect(screen.queryByText("Ratio")).not.toBeInTheDocument();
-    expect(screen.queryByText("90")).not.toBeInTheDocument();
-  });
-
-  it("wechselt zur Tabelle und öffnet eine Zeile per Tastatur", () => {
+  it("zeigt ausschließlich die wichtigsten Werte in einer Tabelle", () => {
     render(<ShotHistory shots={[makeShot("1", "balanced", 28, 36), makeShot("2", "sour", 22, 38)]} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Tabellenansicht" }));
 
     const table = screen.getByRole("table");
     expect(within(table).getByRole("columnheader", { name: "Datum" })).toBeInTheDocument();
+    expect(within(table).getByRole("columnheader", { name: "Mahlgrad" })).toBeInTheDocument();
+    expect(within(table).getByRole("columnheader", { name: "Zeit" })).toBeInTheDocument();
     expect(within(table).getByRole("columnheader", { name: "Stop-Gewicht" })).toBeInTheDocument();
     expect(within(table).getByRole("columnheader", { name: "Finales Gewicht" })).toBeInTheDocument();
     expect(within(table).queryByRole("columnheader", { name: "Ratio" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Nach Bohne filtern" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Kartenansicht" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Tabellenansicht" })).not.toBeInTheDocument();
     expect(within(table).getAllByText("34,0")).toHaveLength(2);
     expect(within(table).getByText("38,0")).toBeInTheDocument();
+    expect(within(table).getByLabelText("Zeit: 28,0 s")).toHaveTextContent("28,0 s");
+    expect(within(table).getAllByLabelText("Stop-Gewicht: 34,0 g")).toHaveLength(2);
+    expect(within(table).getByLabelText("Finales Gewicht: 38,0 g")).toHaveTextContent("38,0 g");
+    expect(within(table).getAllByLabelText("Mahlgrad: 2.4")).toHaveLength(2);
+    expect(screen.getAllByLabelText("Flagge Äthiopien")).toHaveLength(2);
     expect(within(table).queryByText("balanced bean")).not.toBeInTheDocument();
     expect(within(table).queryByText("sour bean")).not.toBeInTheDocument();
+    expect(within(table).queryByText("90")).not.toBeInTheDocument();
     const beanTones = [...table.querySelectorAll<HTMLElement>("[data-bean-tone]")].map((icon) => icon.dataset.beanTone);
     expect(new Set(beanTones).size).toBe(2);
+  });
+
+  it("öffnet eine Tabellenzeile per Tastatur", () => {
+    render(<ShotHistory shots={[makeShot("1", "balanced", 28, 36)]} />);
 
     const row = screen.getByRole("link", { name: /balanced bean/ });
     fireEvent.keyDown(row, { key: "Enter" });
     expect(router.push).toHaveBeenCalledWith("/app/shots/1");
-
-    fireEvent.click(screen.getByRole("button", { name: "Kartenansicht" }));
-    expect(screen.queryByRole("table")).not.toBeInTheDocument();
-  });
-
-  it("filtert Karten und Tabelle nach Bohne", () => {
-    render(<ShotHistory shots={[makeShot("1", "balanced", 28, 36), makeShot("2", "sour", 22, 38)]} />);
-
-    fireEvent.change(screen.getByRole("combobox", { name: "Nach Bohne filtern" }), { target: { value: "b-sour" } });
-    expect(screen.getByRole("link", { name: /sour bean/ })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /balanced bean/ })).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Tabellenansicht" }));
-    const table = screen.getByRole("table");
-    expect(within(table).getByRole("link", { name: /sour bean/ })).toBeInTheDocument();
-    expect(within(table).queryByRole("link", { name: /balanced bean/ })).not.toBeInTheDocument();
-    expect(within(table).queryByText("sour bean")).not.toBeInTheDocument();
   });
 });

@@ -96,8 +96,9 @@ describe("ShotEditForm", () => {
   });
 
   it("verwendet dieselbe Abschnittsreihenfolge und zeigt keine Legacy-Felder", () => {
-    render(<ShotEditForm userId="user-1" shot={shot} beans={[bean]} equipment={[machine, grinder]} />);
+    const { container } = render(<ShotEditForm userId="user-1" shot={shot} beans={[bean]} equipment={[machine, grinder]} />);
 
+    expect(container.querySelector("form")).toHaveClass("h-full", "overflow-hidden");
     expect(screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toEqual([
       "Setup",
       "Extraktion",
@@ -111,6 +112,10 @@ describe("ShotEditForm", () => {
     expect(screen.getByRole("button", { name: "Leicht sauer" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Leicht bitter" })).toBeInTheDocument();
     expect(screen.queryByText("Gesamtbewertung")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Dosis erhöhen" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Stop-Gewicht erhöhen" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Finales Getränkgewicht erhöhen" })).toBeInTheDocument();
+    expect(screen.getByRole("slider", { name: "Extraktionszeit" })).toHaveValue("30");
   });
 
   it("bricht ohne Mutation ab", () => {
