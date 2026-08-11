@@ -1,15 +1,32 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, CalendarDays, Check, Coffee } from "lucide-react";
 import { requireUser } from "@/lib/supabase/auth";
-import { loadAppData } from "@/features/data/queries";
+import { loadBeanDetailData } from "@/features/data/queries";
 import { roastAgeDays } from "@/lib/calculations";
 import { BeanForm } from "@/components/beans/bean-form";
 import { ArchiveButton } from "@/components/beans/archive-button";
+import { BeanIcon, EntityIconFrame } from "@/components/entities/entity-icons";
+import { Button } from "@/components/ui/button";
 
 export default async function BeanDetail({ params }: PageProps<"/app/beans/[beanId]">) {
-  const { beanId } = await params; const { userId } = await requireUser(); const { beans, shots } = await loadAppData(userId);
-  const bean = beans.find((b) => b.id === beanId); if (!bean) notFound();
-  const beanShots = shots.filter((s) => s.bean_id === bean.id); const best = [...beanShots].sort((a, b) => (b.score ?? -1) - (a.score ?? -1))[0];
-  return <div className="fixed inset-0 z-50 grid grid-rows-[auto_auto_1fr] bg-[var(--dialed-surface)] min-[561px]:absolute"><header className="flex items-center justify-between border-b px-[18px] pt-[calc(16px+env(safe-area-inset-top))] pb-3"><Link href="/app/beans" aria-label="Zurück" className="grid size-[38px] place-items-center rounded-full bg-[var(--dialed-surface-subtle)]"><ArrowLeft className="size-4" /></Link><h1 className="font-display text-[22px]">Bohne bearbeiten</h1><span className="w-[38px]" /></header><div className="flex items-center justify-between border-b px-[18px] py-3 text-[10px] text-[var(--dialed-text-muted)]"><span>{bean.roast_date ? `${roastAgeDays(bean.roast_date)} Tage seit Röstung` : "Röstdatum nicht angegeben"} · {beanShots.length} Shots</span><span>{best ? `Bestes Rezept: ${best.score ?? "—"} Punkte` : "Noch kein Rezept"}</span></div><div className="relative min-h-0"><BeanForm bean={bean} archiveAction={<ArchiveButton id={bean.id} archived={Boolean(bean.archived_at)} />} /></div></div>;
+  const { beanId } = await params; const { supabase, userId } = await requireUser(); const { bean, shots: beanShots } = await loadBeanDetailData(userId, beanId, supabase);
+  if (!bean) notFound();
+  return <div className="fixed inset-0 z-50 grid h-dvh max-h-dvh grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden bg-[var(--dialed-surface)] min-[561px]:absolute min-[561px]:h-full">
+    <header className="grid grid-cols-[44px_46px_minmax(0,1fr)_44px] items-center gap-3 border-b border-black bg-white px-6 pt-[calc(16px+env(safe-area-inset-top))] pb-4">
+      <Link href="/app/beans" aria-label="Zurück" className="grid size-11 place-items-center border border-black bg-white hover:bg-black hover:text-white"><ArrowLeft className="size-4" /></Link>
+      <EntityIconFrame size="lg"><BeanIcon origin={bean.origin} className="text-[22px] [&_svg]:size-5" /></EntityIconFrame>
+      <div className="min-w-0"><p className="text-[10px] font-semibold tracking-[.08em] text-[var(--dialed-text-muted)] uppercase">Bohne bearbeiten</p><h1 className="truncate font-display text-[22px] font-semibold">{bean.name}</h1><p className="mt-0.5 truncate text-xs text-[var(--dialed-text-secondary)]">{bean.roaster}</p></div>
+      <Button type="submit" form="bean-form" size="icon-lg" aria-label="Bohne speichern" title="Bohne speichern"><Check /></Button>
+    </header>
+    <div className="grid grid-cols-2 divide-x border-b border-black px-6 py-3">
+      <BeanFact icon={<CalendarDays />} label={bean.roast_date ? `${roastAgeDays(bean.roast_date)} Tage seit Röstung` : "Röstdatum offen"} />
+      <BeanFact icon={<Coffee />} label={`${beanShots.length} ${beanShots.length === 1 ? "Shot" : "Shots"}`} />
+    </div>
+    <div className="relative h-full min-h-0 overflow-hidden"><BeanForm userId={userId} bean={bean} archiveAction={<ArchiveButton userId={userId} id={bean.id} archived={Boolean(bean.archived_at)} />} /></div>
+  </div>;
+}
+
+function BeanFact({ icon, label }: { icon: React.ReactNode; label: string }) {
+  return <span className="flex min-w-0 items-center gap-2 px-2 first:pl-0 last:pr-0 [&_svg]:size-4"><span className="shrink-0 text-black">{icon}</span><span className="truncate text-xs text-[var(--dialed-text-secondary)]">{label}</span></span>;
 }

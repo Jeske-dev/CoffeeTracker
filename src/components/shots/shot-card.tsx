@@ -1,15 +1,37 @@
 import Link from "next/link";
-import { brewRatio, TASTE_COLORS } from "@/lib/calculations";
-import { formatDateTime, formatRatio, formatTime, formatWeight } from "@/lib/formatting";
-import type { ShotWithBean } from "@/types/domain";
+import { Gauge, Timer, Weight } from "lucide-react";
+import { BeanIcon, EntityIconFrame } from "@/components/entities/entity-icons";
+import { DataMetric } from "@/components/ui/data-metric";
+import { formatDateTime, formatTime } from "@/lib/formatting";
+import type { ShotSummary } from "@/types/domain";
+import { TasteBadge } from "./shot-visuals";
 
-export function ShotCard({ shot }: { shot: ShotWithBean }) {
-  const provisional = shot.score_coverage !== null && shot.score_coverage < 70;
+const compactWeight = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 });
+
+export function ShotCard({ shot }: { shot: ShotSummary }) {
   return (
-    <Link href={`/app/shots/${shot.id}`} className="grid grid-cols-[46px_1fr_auto] items-center gap-3 rounded-[18px] border bg-white p-3.5 shadow-[0_7px_18px_rgba(54,34,24,.05)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-sm)]">
-      <div className="score-ring relative grid size-[46px] place-items-center rounded-full" style={{ "--score": shot.score ?? 0 } as React.CSSProperties}><span className="relative z-10 text-xs font-extrabold">{shot.score ?? "—"}</span></div>
-      <div className="min-w-0"><strong className="block truncate text-[13px]">{shot.beans?.name ?? "Unbekannte Bohne"}</strong><span className="mt-1 block truncate text-[10px] text-[var(--dialed-text-muted)]">{formatDateTime(shot.shot_at)} · Mahlgrad {shot.grind_setting ?? "—"}</span>{provisional && <span className="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-semibold text-amber-800">Vorläufig</span>}</div>
-      <div className="text-right"><strong className="block whitespace-nowrap text-xs">{formatWeight(shot.dose_grams).replace(" g", "")} → {formatWeight(shot.final_yield_grams)}</strong><span className="mt-1 block whitespace-nowrap text-[9px] text-[var(--dialed-text-muted)]"><i className="mr-1 inline-block size-[7px] rounded-full" style={{ background: shot.taste ? TASTE_COLORS[shot.taste] : "#b8ada6" }} />{formatTime(shot.extraction_seconds)} · {formatRatio(brewRatio(shot.final_yield_grams, shot.dose_grams))}</span></div>
+    <Link href={`/app/shots/${shot.id}`} className="block border border-[var(--crema-outline-soft)] bg-white p-4 hover:border-black hover:bg-[var(--crema-surface-low)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black">
+      <div className="grid grid-cols-[46px_minmax(0,1fr)] items-center gap-3">
+        <EntityIconFrame size="lg"><BeanIcon origin={shot.beans?.origin} className="text-[22px] [&_svg]:size-5" /></EntityIconFrame>
+        <div className="min-w-0">
+          <strong className="block truncate font-display text-lg font-semibold">{shot.beans?.name ?? "Unbekannte Bohne"}</strong>
+          <div className="mt-1 flex min-w-0 items-center justify-between gap-2">
+            <span className="min-w-0 truncate text-xs text-[var(--dialed-text-muted)]">{formatDateTime(shot.shot_at)}</span>
+            <TasteBadge taste={shot.taste} />
+          </div>
+        </div>
+      </div>
+      <div className="mt-4 grid grid-cols-3 divide-x border-y border-black py-3">
+        <DataMetric icon={Gauge} label="Mahlgrad" value={shot.grind_setting ?? "—"} align="center" className="px-2 first:pl-0 last:pr-0" valueClassName="text-[13px]" />
+        <DataMetric icon={Timer} label="Zeit" value={formatTime(shot.extraction_seconds)} align="center" className="px-2 first:pl-0 last:pr-0" valueClassName="text-[13px]" />
+        <DataMetric icon={Weight} label="Stop / Final" value={formatWeightPair(shot.stop_weight_grams, shot.final_yield_grams)} align="center" className="px-2 first:pl-0 last:pr-0" valueClassName="whitespace-nowrap text-[11px]" truncateValue={false} />
+      </div>
     </Link>
   );
+}
+
+function formatWeightPair(stopWeight: number | null, finalWeight: number | null) {
+  const stop = stopWeight === null ? "—" : compactWeight.format(stopWeight);
+  const final = finalWeight === null ? "—" : compactWeight.format(finalWeight);
+  return `${stop} / ${final} g`;
 }

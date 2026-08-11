@@ -2,82 +2,248 @@
 /* React Hook Form intentionally manages mutable form state outside React Compiler memoization. */
 /* eslint-disable react-hooks/incompatible-library */
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Check, ChevronLeft, Minus, Plus, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Info, WifiOff, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { calculateDialedScore, roastAgeDays } from "@/lib/calculations";
-import { formatRatio } from "@/lib/formatting";
-import { shotSchema, type ShotInput } from "@/lib/validation";
-import { removeShotDraft, readShotDraft, writeShotDraft } from "@/lib/shot-draft";
 import { saveShot } from "@/features/data/actions";
+import { resolveNextShotTargets } from "@/features/recommendations/next-shot-targets";
+import {
+  buildOptimisticShot,
+  calculateShotInputScore,
+  createShotDefaults,
+  getSelectableBeans,
+  groupShotEquipment,
+  prepareShotSubmission,
+  stepGrindSetting,
+  stepNumericValue,
+} from "@/features/shots/form-model";
+import { calculateStopWeightTip, type StopWeightHistoryShot } from "@/features/shots/stop-weight-tip";
+import { useShotDraft, type ShotFormStep } from "@/features/shots/use-shot-draft";
+import { useOnlineStatus } from "@/hooks/use-online-status";
+import { usePrivateCache } from "@/hooks/use-private-cache";
+import { privateCacheKeys } from "@/lib/cache/keys";
+import { runOptimisticMutation } from "@/lib/cache/optimistic-mutation";
+import type { ShotsPayload } from "@/lib/cache/types";
+import { togglePrepTool as withToggledPrepTool, type PrepTool } from "@/lib/prep-tools";
+import { removeShotDraft } from "@/lib/shot-draft";
+import { shotSchema, type ShotInput } from "@/lib/validation";
 import type { Bean, Equipment, Shot, UserSettings } from "@/types/domain";
+import {
+  BeanSelectControl,
+  GrindControl,
+  nullableNumber,
+  nullableString,
+  NumberControl,
+  PrepToolsControl,
+  requiredNumber,
+} from "./shot-form-controls";
+import { ShotExtractionFormSection, ShotReviewFormSection, ShotSetupSummary } from "./shot-form-panels";
+import { ShotRecipeSection } from "./shot-sections";
 
-const tastes = [["very_sour", "🍋", "Sehr sauer"], ["sour", "◐", "Leicht sauer"], ["balanced", "●", "Balanciert"], ["bitter", "◑", "Leicht bitter"], ["very_bitter", "◆", "Sehr bitter"]] as const;
-const flows = [["even", "Gleichmäßig", "Ruhiger, mittiger Flow"], ["minor_channeling", "Leichtes Channeling", "Unruhig oder leicht seitlich"], ["channeling", "Starkes Channeling", "Mehrere schnelle Kanäle"], ["spritzing", "Spritzing", "Deutliche seitliche Spritzer"]] as const;
-const pucks = [["dry", "Zu trocken", "Rissig oder sehr hart"], ["ideal", "Sauber & stabil", "Normal feucht, kompakt"], ["wet", "Sehr nass", "Wasser steht auf dem Puck"], ["stuck", "Hängengeblieben", "Am Duschsieb festgeklebt"]] as const;
+const emptyStopWeightHistory: StopWeightHistoryShot[] = [];
 
-export function ShotWizard({ userId, beans, equipment, settings, lastShot }: { userId: string; beans: Bean[]; equipment: Equipment[]; settings: UserSettings | null; lastShot: Shot | null }) {
+export function ShotWizard({
+  userId,
+  beans,
+  equipment,
+  settings,
+  lastShot,
+  stopWeightHistory = emptyStopWeightHistory,
+}: {
+  userId: string;
+  beans: Bean[];
+  equipment: Equipment[];
+  settings: UserSettings | null;
+  lastShot: Shot | null;
+  stopWeightHistory?: StopWeightHistoryShot[];
+}) {
   const router = useRouter();
+  const { mutate, invalidateShotData } = usePrivateCache();
+  const isOnline = useOnlineStatus();
   const [pending, startTransition] = useTransition();
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [draftReady, setDraftReady] = useState(false);
-  const [running, setRunning] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
-  const baseRef = useRef(0);
-  const startRef = useRef(0);
-  const frameRef = useRef(0);
-  const activeBeans = beans.filter((bean) => !bean.archived_at);
-  const machines = equipment.filter((item) => item.type === "machine" && !item.archived_at);
-  const grinders = equipment.filter((item) => item.type === "grinder" && !item.archived_at);
-  const defaultBean = activeBeans.find((bean) => bean.id === settings?.last_bean_id) ?? activeBeans[0];
+  const [step, setStep] = useState<ShotFormStep>(1);
+  const activeBeans = useMemo(() => getSelectableBeans(beans), [beans]);
+  const { machines, grinders } = useMemo(() => groupShotEquipment(equipment), [equipment]);
+  const defaults = useMemo(() => createShotDefaults({ beans, settings, lastShot }), [beans, lastShot, settings]);
   const { register, watch, setValue, trigger, handleSubmit, reset, formState: { errors } } = useForm<ShotInput>({
     resolver: zodResolver(shotSchema),
-    defaultValues: {
-      beanId: defaultBean?.id ?? "", machineId: settings?.auto_fill ? settings.default_machine_id : null, grinderId: settings?.auto_fill ? settings.default_grinder_id : null, basketId: null,
-      grindSetting: lastShot?.grind_setting ?? null, doseGrams: lastShot?.dose_grams ?? null, temperatureC: lastShot?.temperature_c ?? null, preinfusionSeconds: null, prepTools: settings?.default_prep_tools ?? null,
-      extractionSeconds: lastShot?.extraction_seconds ?? null, stopWeightGrams: lastShot?.stop_weight_grams ?? null, finalYieldGrams: lastShot?.final_yield_grams ?? null, taste: lastShot?.taste ?? null, flow: lastShot?.flow ?? null, puck: lastShot?.puck ?? null, notes: lastShot?.notes ?? null,
-      overallTasteRating: lastShot?.overall_taste_rating ?? null, tds: lastShot?.tds ?? null, flowEvenness: lastShot?.flow_evenness ?? null, channeling: lastShot?.channeling ?? null,
-    },
+    defaultValues: defaults,
   });
   const values = watch();
-  const scoreResult = calculateDialedScore({ doseGrams: values.doseGrams, finalYieldGrams: values.finalYieldGrams, extractionSeconds: values.extractionSeconds, overallTasteRating: values.overallTasteRating, tasteBalance: values.taste, flow: values.flow, puck: values.puck, flowEvenness: values.flowEvenness, channeling: values.channeling, tds: values.tds });
+  const saveDraft = useShotDraft({ userId, defaults, step, values, reset, setStep });
+  const targets = resolveNextShotTargets(lastShot, stopWeightHistory);
+  const stopWeightTip = useMemo(() => calculateStopWeightTip({
+    beanId: values.beanId || null,
+    grindSetting: values.grindSetting,
+    targetFinalWeightGrams: values.finalYieldGrams,
+    history: stopWeightHistory,
+  }), [stopWeightHistory, values.beanId, values.finalYieldGrams, values.grindSetting]);
 
-  useEffect(() => { const draft = readShotDraft(userId); if (draft) { reset(draft.values); setStep(draft.step); setElapsed(draft.values.extractionSeconds ? draft.values.extractionSeconds * 1000 : 0); toast.info("Shot-Entwurf fortgesetzt", { id: "shot-draft-restored" }); } setDraftReady(true); }, [reset, userId]);
-  useEffect(() => { if (!draftReady) return; const timer = window.setTimeout(() => writeShotDraft(userId, step, values), 350); return () => window.clearTimeout(timer); }, [draftReady, step, userId, values]);
-  useEffect(() => { if (!draftReady) return; const preserve = () => writeShotDraft(userId, step, values); window.addEventListener("pagehide", preserve); return () => window.removeEventListener("pagehide", preserve); }, [draftReady, step, userId, values]);
-  useEffect(() => { if (!running) return; const tick = (now: number) => { const next = baseRef.current + now - startRef.current; setElapsed(next); setValue("extractionSeconds", Math.max(0.1, next / 1000), { shouldValidate: false }); frameRef.current = requestAnimationFrame(tick); }; frameRef.current = requestAnimationFrame(tick); return () => cancelAnimationFrame(frameRef.current); }, [running, setValue]);
+  const close = () => {
+    saveDraft();
+    toast.success("Shot als Entwurf gespeichert", { description: "Du kannst ihn unter Shots weiter bearbeiten." });
+    router.push("/app/shots");
+  };
 
-  const toggleTimer = () => { if (running) { baseRef.current = elapsed; setRunning(false); } else { startRef.current = performance.now(); setRunning(true); } };
-  const resetTimer = () => { setRunning(false); baseRef.current = 0; setElapsed(0); setValue("extractionSeconds", null); };
-  const close = () => { writeShotDraft(userId, step, values); toast.success("Shot als Entwurf gespeichert", { description: "Du kannst ihn unter Shots weiter bearbeiten." }); router.push("/app/shots"); };
-  const next = async () => { if (step === 1) { if (await trigger(["beanId"])) setStep(2); } else { if (running) { baseRef.current = elapsed; setRunning(false); } setStep(3); } };
-  const submit = (data: ShotInput) => startTransition(async () => { const result = await saveShot(data); if (!result.ok) { toast.error(result.message); return; } removeShotDraft(userId); toast.success("Shot gespeichert", { description: result.message }); router.push("/app"); router.refresh(); });
-  const timerText = `${String(Math.floor(elapsed / 60000)).padStart(2, "0")}:${String(Math.floor(elapsed / 1000) % 60).padStart(2, "0")}.${Math.floor(elapsed / 100) % 10}`;
-  const ratio = values.doseGrams && values.finalYieldGrams ? formatRatio(values.finalYieldGrams / values.doseGrams) : "—";
+  const next = async () => {
+    if (step === 1) {
+      if (await trigger(["beanId", "doseGrams"])) setStep(2);
+      return;
+    }
+    if (await trigger(["extractionSeconds", "stopWeightGrams", "finalYieldGrams"])) setStep(3);
+  };
 
-  return <div className="fixed inset-0 z-50 grid bg-[var(--dialed-surface)] min-[561px]:absolute">
-    <header className="border-b bg-[rgba(251,248,243,.95)] px-[18px] pt-[calc(16px+env(safe-area-inset-top))] pb-3 backdrop-blur"><div className="grid grid-cols-[40px_1fr_40px] items-center"><button type="button" onClick={close} aria-label="Schließen" className="grid size-[38px] place-items-center rounded-full bg-[var(--dialed-surface-subtle)]"><X className="size-[18px]" /></button><h1 className="text-center font-display text-[22px]">Neuer Shot</h1></div><div className="mt-3.5 grid grid-cols-3 gap-1.5">{[1, 2, 3].map((item) => <span key={item} className={`h-1 rounded-full ${item <= step ? "bg-[var(--dialed-crema)]" : "bg-[var(--dialed-surface-strong)]"}`} />)}</div><div className="mt-1.5 grid grid-cols-3 text-center text-[8px] text-[var(--dialed-text-muted)]">{["Setup", "Extraktion", "Review"].map((label, index) => <span key={label} className={step === index + 1 ? "font-extrabold text-[var(--dialed-text)]" : ""}>{label}</span>)}</div></header>
-    <form onSubmit={handleSubmit(submit)} className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto]">
-      <div className="scrollbar-none min-h-0 overflow-y-auto px-[18px] py-[19px] pb-6"><div className="mx-auto max-w-[680px]">
-        {step === 1 && <><Intro title="Was kommt in den Siebträger?">Fehlende Werte bleiben offen und werden nicht geschätzt.</Intro><Section title="Mahlgrad & Dosis"><div className="space-y-2"><Label>Mahlgrad optional</Label><div className="grid grid-cols-[46px_1fr_46px] gap-2"><button type="button" onClick={() => setValue("grindSetting", ((Number(values.grindSetting) || 0) - 0.1).toFixed(1))} className="grid h-12 place-items-center rounded-[13px] bg-[var(--dialed-surface-subtle)]"><Minus className="size-4" /></button><Input className="h-12 text-center font-bold" {...register("grindSetting")} /><button type="button" onClick={() => setValue("grindSetting", ((Number(values.grindSetting) || 0) + 0.1).toFixed(1))} className="grid h-12 place-items-center rounded-[13px] bg-[var(--dialed-surface-subtle)]"><Plus className="size-4" /></button></div></div><div className="mt-3 grid grid-cols-2 gap-2"><NumberField label="Dosis optional" unit="g" registration={register("doseGrams", { setValueAs: (value) => value === "" ? null : Number(value) })} /><NumberField label="Temperatur optional" unit="°C" registration={register("temperatureC", { setValueAs: (value) => value === "" ? null : Number(value) })} /></div></Section><Section title="Puck Prep"><div className="grid grid-cols-2 gap-2">{["WDT", "Tamper", "Puck Screen", "Leveler"].map((tool) => { const active = (values.prepTools ?? []).includes(tool); return <button type="button" key={tool} aria-pressed={active} onClick={() => setValue("prepTools", active ? (values.prepTools ?? []).filter((item) => item !== tool) : [...(values.prepTools ?? []), tool])} className={`flex min-h-[70px] flex-col justify-between rounded-[14px] border p-3 text-left text-[10px] font-bold ${active ? "border-[var(--dialed-sage)]/30 bg-[var(--dialed-sage-soft)]" : "bg-[var(--dialed-surface)]"}`}><Check className={`size-4 text-[var(--dialed-sage)] ${active ? "" : "opacity-0"}`} />{tool}</button>; })}</div></Section><Section title="Bohne"><select aria-label="Bohne wählen" className="h-14 w-full rounded-[18px] border bg-white px-3 text-xs" {...register("beanId")}>{activeBeans.map((bean) => <option key={bean.id} value={bean.id}>{bean.name} · {bean.roaster}{bean.roast_date ? ` · ${roastAgeDays(bean.roast_date)} Tage` : ""}</option>)}</select><Error text={errors.beanId?.message} /></Section><Section title="Equipment"><SelectField label="Maschine" options={machines} registration={register("machineId")} /><SelectField label="Mühle" options={grinders} registration={register("grinderId")} /></Section></>}
-        {step === 2 && <><Intro title="Extraktion läuft.">Trage nur Werte ein, die du wirklich gemessen hast.</Intro><div className="py-1 text-center"><div className="relative mx-auto mb-4 grid size-[204px] place-items-center rounded-full p-2.5 shadow-[0_18px_40px_rgba(54,34,24,.1)]" style={{ background: `conic-gradient(var(--dialed-crema) ${Math.min(100, elapsed / 400)}%,var(--dialed-surface-strong) 0)` }}><div className="grid size-full place-items-center rounded-full border bg-[var(--dialed-surface)]"><div><small className="mb-2 block text-[8px] uppercase tracking-[.12em] text-[var(--dialed-text-muted)]">Extraktionszeit</small><strong className="font-mono text-[42px] tracking-[-.07em]">{timerText}</strong></div></div></div><div className="flex justify-center gap-2"><Button type="button" onClick={toggleTimer} className={`h-11 rounded-full ${running ? "bg-[var(--dialed-rose)]" : "bg-[var(--dialed-espresso)]"}`}>{running ? "Timer stoppen" : elapsed ? "Weiterlaufen" : "Timer starten"}</Button><Button type="button" variant="secondary" onClick={resetTimer} className="h-11 rounded-full">Zurücksetzen</Button></div></div><div className="my-3 flex items-center justify-between rounded-[18px] bg-[var(--dialed-espresso)] p-4 text-white"><span className="text-[10px] text-white/60">Aktuelles Brew Ratio</span><strong className="font-display text-2xl">{ratio}</strong></div><Section><div className="grid grid-cols-2 gap-2"><div className="col-span-2"><NumberField label="Zeit optional" unit="s" registration={register("extractionSeconds", { setValueAs: (value) => value === "" ? null : Number(value) })} /></div><NumberField label="Stop-Gewicht optional" unit="g" registration={register("stopWeightGrams", { setValueAs: (value) => value === "" ? null : Number(value) })} /><NumberField label="Finales Gewicht optional" unit="g" registration={register("finalYieldGrams", { setValueAs: (value) => value === "" ? null : Number(value) })} /></div><Error text={errors.finalYieldGrams?.message} /></Section></>}
-        {step === 3 && <><Intro title="Wie war der Shot?">Der Score wird nur berechnet, wenn die Mindestdaten vorhanden sind.</Intro><div className="mb-3 flex items-center gap-3 rounded-[24px] bg-[linear-gradient(135deg,var(--dialed-espresso),var(--dialed-espresso-raised))] p-4 text-white"><div className="grid size-[58px] place-items-center rounded-full bg-white/10 font-display text-2xl">{scoreResult.score ?? "—"}</div><div><strong className="text-xs">Dialed Score</strong><p className="mt-1 text-[9px] text-white/60">Datenabdeckung: {scoreResult.coverage}% · {scoreResult.coverageLabel}</p></div></div><Section title="Geschmack" meta="Sauer → Bitter"><div className="grid grid-cols-5 gap-1.5">{tastes.map(([id, icon, label]) => <button type="button" key={id} onClick={() => setValue("taste", id)} aria-pressed={values.taste === id} className={`grid min-h-[82px] place-items-center rounded-[14px] border px-1 text-center ${values.taste === id ? "-translate-y-0.5 border-[var(--dialed-crema)] bg-[var(--dialed-crema-soft)]" : "bg-[var(--dialed-surface)]"}`}><span className="text-lg">{icon}</span><span className="text-[8px] leading-tight">{label}</span></button>)}</div></Section><ChoiceSection title="Flow" values={flows} active={values.flow} onSelect={(value) => setValue("flow", value)} /><ChoiceSection title="Puck" values={pucks} active={values.puck} onSelect={(value) => setValue("puck", value)} /><Section><Label htmlFor="notes">Notiz optional</Label><Textarea id="notes" className="mt-2 min-h-24" {...register("notes")} /></Section></>}
+  const togglePrepTool = (tool: PrepTool) => {
+    setValue("prepTools", withToggledPrepTool(values.prepTools ?? [], tool), { shouldDirty: true });
+  };
+
+  const submit = (data: ShotInput) => {
+    if (!isOnline) {
+      saveDraft(data);
+      toast.error("Offline gespeichert", { description: "Der Entwurf bleibt auf diesem Gerät. Speichere den Shot, sobald du wieder online bist." });
+      return;
+    }
+
+    const submittedData = prepareShotSubmission(data, defaults);
+    const scoreResult = calculateShotInputScore(submittedData);
+    startTransition(async () => {
+      const key = privateCacheKeys.shots(userId);
+      const optimisticId = `optimistic-${Date.now()}`;
+      const shotAt = new Date().toISOString();
+      const bean = activeBeans.find((item) => item.id === submittedData.beanId) ?? null;
+      const optimisticShot = buildOptimisticShot({
+        id: optimisticId,
+        shotAt,
+        input: submittedData,
+        bean,
+        score: scoreResult.score,
+        coverage: scoreResult.coverage,
+      });
+
+      try {
+        const result = await runOptimisticMutation<ShotsPayload, Awaited<ReturnType<typeof saveShot>>>({
+          mutate: (current, options) => mutate<ShotsPayload>(key, current, options),
+          optimisticData: (current) => current ? { ...current, shots: [optimisticShot, ...current.shots] } : current,
+          mutation: async () => {
+            const result = await saveShot(submittedData);
+            if (!result.ok) throw new globalThis.Error(result.message);
+            return result;
+          },
+          commit: (current, result) => current ? {
+            ...current,
+            shots: current.shots.map((shot) => shot.id === optimisticId ? {
+              ...shot,
+              id: result.id ?? optimisticId,
+              score: result.score ?? shot.score,
+              score_coverage: result.coverage ?? shot.score_coverage,
+            } : shot),
+          } : current,
+        });
+        await invalidateShotData({ userId, beanId: submittedData.beanId, shotId: result.id, preserveShotList: true });
+        removeShotDraft(userId);
+        toast.success("Shot gespeichert");
+        router.replace("/app");
+      } catch (error) {
+        toast.error(error instanceof globalThis.Error ? error.message : "Der Shot konnte nicht gespeichert werden.");
+      }
+    });
+  };
+
+  const selectedMachine = machines.find((item) => item.id === values.machineId) ?? null;
+  const selectedGrinder = grinders.find((item) => item.id === values.grinderId) ?? null;
+  const grindHint = values.beanId === lastShot?.bean_id && targets.changed.grind && targets.grindSetting !== values.grindSetting
+    ? <TargetHint value={targets.grindSetting ?? "–"} />
+    : undefined;
+  return <div className="fixed inset-0 z-50 grid h-dvh max-h-dvh grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-[var(--dialed-surface)] min-[561px]:absolute min-[561px]:h-full">
+    <header className="border-b border-black bg-white px-6 pt-[calc(16px+env(safe-area-inset-top))] pb-4">
+      <div className="grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-2">
+        {step === 1
+          ? <button type="button" onClick={close} aria-label="Schließen" title="Schließen" className="grid size-11 place-items-center border border-black bg-white hover:bg-black hover:text-white"><X className="size-[18px]" /></button>
+          : <button type="button" onClick={() => setStep((current) => Math.max(1, current - 1) as ShotFormStep)} aria-label="Zurück" title="Zurück" className="grid size-11 place-items-center border border-black bg-white hover:bg-black hover:text-white"><ChevronLeft className="size-[18px]" /></button>}
+        <h1 className="truncate font-display text-xl font-semibold min-[380px]:text-[22px]">Neuer Shot</h1>
+        {step < 3
+          ? <Button key={`next-${step}`} type="button" onClick={() => void next()} className="h-11 gap-1.5 px-2 text-[10px]">Weiter<ChevronRight /></Button>
+          : <Button
+              type="submit"
+              form="new-shot-form"
+              aria-label={pending ? "Shot wird gespeichert" : isOnline ? "Shot speichern" : "Offline – Entwurf bleibt erhalten"}
+              disabled={pending || !isOnline}
+              className="h-11 w-11 gap-1.5 px-0 text-[10px] min-[380px]:w-auto min-[380px]:px-2"
+            >{isOnline ? <Check /> : <WifiOff />}<span className="hidden min-[380px]:inline">{pending ? "Speichert ..." : isOnline ? "Speichern" : "Offline"}</span></Button>}
+      </div>
+      <div className="mt-4 grid grid-cols-3 border border-black">{[1, 2, 3].map((item) => <span key={item} className={`h-1.5 border-r border-black last:border-r-0 ${item <= step ? "bg-black" : "bg-white"}`} />)}</div>
+      <div className="mt-2 grid grid-cols-3 text-center text-[9px] font-semibold tracking-[.08em] text-[var(--dialed-text-muted)] uppercase">{["Rezept", "Extraktion", "Bewertung"].map((label, index) => <span key={label} className={step === index + 1 ? "text-black" : ""}>{label}</span>)}</div>
+    </header>
+    <form id="new-shot-form" onSubmit={handleSubmit(submit)} className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)] overflow-hidden">
+      <input type="hidden" {...register("beanId")} />
+      <input type="hidden" {...register("machineId", nullableString)} />
+      <input type="hidden" {...register("grinderId", nullableString)} />
+      <input type="hidden" {...register("basketId", nullableString)} />
+      <div className="form-scroll-region h-full px-6 py-6 pb-[env(safe-area-inset-bottom)]"><div className="mx-auto max-w-[680px]">
+        {step === 1 && <>
+          <PageTitle>Rezept</PageTitle>
+          <ShotRecipeSection fields={{
+            bean: { value: <BeanSelectControl label="Bohne wählen" options={activeBeans} value={values.beanId} onValueChange={(value) => setValue("beanId", value, { shouldDirty: true, shouldValidate: true })} /> },
+            grind: { value: <GrindControl value={values.grindSetting} registration={register("grindSetting", nullableString)} onStep={(delta) => setValue("grindSetting", stepGrindSetting(values.grindSetting, delta), { shouldDirty: true })} />, hint: grindHint },
+            dose: { value: <NumberControl ariaLabel="Dosis" unit="g" value={values.doseGrams} registration={register("doseGrams", requiredNumber)} onStep={(delta) => setValue("doseGrams", stepNumericValue(values.doseGrams, delta), { shouldDirty: true, shouldValidate: true })} /> },
+            prepTools: { value: <PrepToolsControl value={values.prepTools ?? []} onToggle={togglePrepTool} /> },
+          }} />
+          <FormError text={errors.beanId?.message ?? errors.doseGrams?.message} />
+          <ShotSetupSummary machine={selectedMachine} grinder={selectedGrinder} />
+        </>}
+        {step === 2 && <>
+          <PageTitle>Extraktion</PageTitle>
+          <ShotExtractionFormSection
+            timeValue={values.extractionSeconds}
+            stopWeightGrams={values.stopWeightGrams}
+            finalYieldGrams={values.finalYieldGrams}
+            timeRegistration={register("extractionSeconds", nullableNumber)}
+            stopRegistration={register("stopWeightGrams", nullableNumber)}
+            finalYieldRegistration={register("finalYieldGrams", requiredNumber)}
+            onTimeChange={(value) => setValue("extractionSeconds", value, { shouldDirty: true, shouldValidate: true })}
+            onStopWeightStep={(delta) => {
+              const fallback = stopWeightTip?.recommendedStopWeightGrams ?? Math.max(0, (values.finalYieldGrams ?? 0) - 2);
+              setValue("stopWeightGrams", stepNumericValue(values.stopWeightGrams ?? fallback, delta), { shouldDirty: true, shouldValidate: true });
+            }}
+            onFinalYieldStep={(delta) => setValue("finalYieldGrams", stepNumericValue(values.finalYieldGrams, delta), { shouldDirty: true, shouldValidate: true })}
+            stopTip={stopWeightTip}
+          />
+          <FormError text={errors.extractionSeconds?.message ?? errors.stopWeightGrams?.message ?? errors.finalYieldGrams?.message} />
+        </>}
+        {step === 3 && <>
+          <PageTitle>Bewertung</PageTitle>
+          <ShotReviewFormSection
+            taste={values.taste}
+            rating={values.overallTasteRating}
+            flow={values.flow}
+            puck={values.puck}
+            notesRegistration={register("notes")}
+            onTasteChange={(taste, rating) => {
+              setValue("taste", taste, { shouldDirty: true });
+              setValue("overallTasteRating", rating, { shouldDirty: true });
+            }}
+            onFlowChange={(flow) => setValue("flow", flow, { shouldDirty: true })}
+            onPuckChange={(puck) => setValue("puck", puck, { shouldDirty: true })}
+          />
+        </>}
+        <div aria-hidden="true" data-form-end-spacer className="h-20" />
       </div></div>
-      <footer className="flex gap-2.5 border-t bg-[rgba(251,248,243,.94)] px-[18px] pt-3 pb-[calc(14px+env(safe-area-inset-bottom))] backdrop-blur"><Button type="button" variant="secondary" onClick={() => setStep((current) => Math.max(1, current - 1) as 1 | 2 | 3)} className={`h-12 flex-1 rounded-full ${step === 1 ? "invisible" : ""}`}><ChevronLeft />Zurück</Button>{step < 3 ? <Button key={`next-${step}`} type="button" onClick={(event) => { event.preventDefault(); void next(); }} className="h-12 flex-1 rounded-full bg-[var(--dialed-crema)] text-[var(--dialed-text)]">Weiter</Button> : <Button type="submit" disabled={pending} className="h-12 flex-1 rounded-full bg-[var(--dialed-crema)] text-[var(--dialed-text)]">{pending ? "Speichert …" : "Review abschließen & speichern"}</Button>}</footer>
     </form>
   </div>;
 }
 
-function Intro({ title, children }: { title: string; children: React.ReactNode }) { return <div className="mb-[18px]"><h2 className="font-display text-[25px] font-medium">{title}</h2><p className="mt-1.5 text-[11px] leading-4 text-[var(--dialed-text-muted)]">{children}</p></div>; }
-function Section({ title, meta, children }: { title?: string; meta?: string; children: React.ReactNode }) { return <section className="mb-3 rounded-[24px] border bg-white p-4">{title && <div className="mb-3 flex justify-between"><strong className="text-xs">{title}</strong>{meta && <span className="text-[9px] text-[var(--dialed-text-muted)]">{meta}</span>}</div>}{children}</section>; }
-function NumberField({ label, unit, registration }: { label: string; unit: string; registration: ReturnType<ReturnType<typeof useForm<ShotInput>>["register"]> }) { return <div><Label className="mb-1.5 ml-1 block text-[9px] text-[var(--dialed-text-muted)]">{label}</Label><div className="flex h-12 items-center rounded-[13px] bg-[var(--dialed-surface-subtle)] px-3"><input type="number" step="0.1" className="w-full bg-transparent text-xs outline-none" {...registration} /><span className="text-[10px] text-[var(--dialed-text-muted)]">{unit}</span></div></div>; }
-function SelectField({ label, options, registration }: { label: string; options: Equipment[]; registration: ReturnType<ReturnType<typeof useForm<ShotInput>>["register"]> }) { return <label className="mt-2 flex min-h-14 items-center gap-3 rounded-[18px] border p-3"><span className="grid size-10 place-items-center rounded-[13px] bg-[var(--dialed-surface-subtle)]">☕</span><span className="min-w-0 flex-1"><small className="block text-[9px] text-[var(--dialed-text-muted)]">{label}</small><select className="w-full bg-transparent text-xs font-bold outline-none" {...registration}><option value="">Nicht gewählt</option>{options.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></span></label>; }
-function ChoiceSection<T extends string>({ title, values, active, onSelect }: { title: string; values: readonly (readonly [T, string, string])[]; active: T | null; onSelect: (value: T) => void }) { return <Section title={title}><div className="grid grid-cols-2 gap-2">{values.map(([id, label, copy]) => <button type="button" key={id} onClick={() => onSelect(id)} aria-pressed={active === id} className={`min-h-[84px] rounded-[14px] border p-3 text-left ${active === id ? "border-[var(--dialed-sage)]/30 bg-[var(--dialed-sage-soft)]" : "bg-[var(--dialed-surface)]"}`}><strong className="block text-[10px]">{label}</strong><span className="mt-1 block text-[8px] leading-3 text-[var(--dialed-text-muted)]">{copy}</span></button>)}</div></Section>; }
-function Error({ text }: { text?: string }) { return text ? <p role="alert" className="mt-2 text-[10px] text-[var(--dialed-rose)]">{text}</p> : null; }
+function PageTitle({ children }: { children: string }) {
+  return <h2 className="mb-5 font-display text-[26px] font-semibold leading-tight">{children}</h2>;
+}
+
+function FormError({ text }: { text?: string }) {
+  return text ? <p role="alert" className="mt-2 text-xs text-[var(--dialed-rose)]">{text}</p> : null;
+}
+
+function TargetHint({ value }: { value: string }) {
+  return <p aria-label={`Zielwert aus deinen letzten Shots: ${value}`} className="mt-2 flex items-center gap-1.5 border-l-2 border-black px-2 text-xs leading-4 text-black"><Info aria-hidden="true" className="size-3.5 shrink-0" /><span>Ziel: <strong>{value}</strong></span></p>;
+}

@@ -1,2 +1,27 @@
-"use client";import{useTransition}from"react";import{useRouter}from"next/navigation";import{Archive,ArchiveRestore}from"lucide-react";import{toast}from"sonner";import{Button}from"@/components/ui/button";import{archiveBean}from"@/features/data/actions";
-export function ArchiveButton({id,archived}:{id:string;archived:boolean}){const[pending,startTransition]=useTransition();const router=useRouter();return <Button variant="secondary" disabled={pending} className="rounded-full" onClick={()=>startTransition(async()=>{const r=await archiveBean(id,!archived);if(r.ok){toast.success(r.message)}else{toast.error(r.message)}router.refresh()})}>{archived?<ArchiveRestore/>:<Archive/>}{archived?'Wiederherstellen':'Archivieren'}</Button>}
+"use client";
+
+import { useState, useTransition } from "react";
+import { Archive, ArchiveRestore } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { archiveBean } from "@/features/data/actions";
+import { usePrivateCache } from "@/hooks/use-private-cache";
+
+export function ArchiveButton({ userId, id, archived }: { userId: string; id: string; archived: boolean }) {
+  const [isArchived, setIsArchived] = useState(archived);
+  const [pending, startTransition] = useTransition();
+  const { invalidateBeanData } = usePrivateCache();
+
+  return <Button variant="secondary" disabled={pending} onClick={() => startTransition(async () => {
+    const next = !isArchived;
+    setIsArchived(next);
+    const result = await archiveBean(id, next);
+    if (!result.ok) {
+      setIsArchived(!next);
+      toast.error(result.message);
+      return;
+    }
+    await invalidateBeanData({ userId, beanId: id });
+    toast.success(result.message);
+  })}>{isArchived ? <ArchiveRestore /> : <Archive />}{isArchived ? "Wiederherstellen" : "Archivieren"}</Button>;
+}

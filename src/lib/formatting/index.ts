@@ -1,9 +1,19 @@
-import type { ShotTaste } from "@/types/domain";
+const oneDecimal = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const twoDecimals = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const dateTime = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" });
+const fullDate = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "long", year: "numeric", timeZone: "Europe/Berlin" });
+const shortDate = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "short", timeZone: "Europe/Berlin" });
+const clockTime = new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" });
 
-const decimal = (digits: number) => new Intl.NumberFormat("de-DE", { minimumFractionDigits: digits, maximumFractionDigits: digits });
-export const formatWeight = (value: number | null | undefined) => value === null || value === undefined ? "—" : `${decimal(1).format(value)} g`;
-export const formatTime = (value: number | null | undefined) => value === null || value === undefined ? "—" : `${decimal(1).format(value)} s`;
-export const formatRatio = (value: number | null | undefined) => value === null || value === undefined ? "—" : `1 : ${decimal(2).format(value)}`;
-export const formatDateTime = (value: string | Date) => new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
-export const formatDate = (value: string | Date) => new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "long", year: "numeric" }).format(new Date(value));
-export const tasteLabel = (taste: ShotTaste | null) => taste ? ({ very_sour: "Sehr sauer", sour: "Leicht sauer", balanced: "Balanciert", bitter: "Leicht bitter", very_bitter: "Sehr bitter" })[taste] : "Nicht angegeben";
+export const formatWeight = (value: number | null | undefined) => value === null || value === undefined ? "—" : `${oneDecimal.format(value)} g`;
+export const formatTime = (value: number | null | undefined) => value === null || value === undefined ? "—" : `${oneDecimal.format(value)} s`;
+export const formatRatio = (value: number | null | undefined) => value === null || value === undefined ? "—" : `1 : ${twoDecimals.format(value)}`;
+export const formatDateTime = (value: string | Date) => formatValidDate(dateTime, value);
+export const formatDate = (value: string | Date) => formatValidDate(fullDate, value);
+export const formatShortDate = (value: string | Date) => formatValidDate(shortDate, value);
+export const formatClockTime = (value: string | Date) => formatValidDate(clockTime, value);
+
+function formatValidDate(formatter: Intl.DateTimeFormat, value: string | Date) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "—" : formatter.format(date);
+}
